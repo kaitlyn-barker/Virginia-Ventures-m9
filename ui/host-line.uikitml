@@ -1,0 +1,28 @@
+<!-- Module 9 host tutorial line: the host's speech panel during the opening. A
+     headset-visible PanelUI (compiled to public/ui/host-line.json), anchored above the
+     host and turned to face the player. The whole speech card (#host-line-tap) is the
+     tap target: tapping it advances to the next line — this is the practice tap the host
+     teaches on line one. #host-line-skip jumps straight in with the stations open. Both
+     are wired in index.ts via onClick. The line text (#host-line-text) and hint
+     (#host-line-hint) are set per step from HOST_LINES. The outer container has no
+     onClick, so only the card and the skip chip are tappable (no overlap between them). -->
+<style>
+  .host-outer { display: flex; flex-direction: column; align-items: center; width: 96; }
+  .host-card { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96; padding: 5; background-color: #1F3A5F; border-width: 1.5; border-color: #8a6118; border-radius: 5; cursor: pointer; }
+  .host-eyebrow { font-size: 3; font-weight: bold; color: #d8c27a; text-align: center; letter-spacing: 2; }
+  .host-text { font-size: 4.6; font-weight: bold; color: #f3e9d2; text-align: center; margin-top: 2; line-height: 1.3; }
+  .host-hint { font-size: 3.2; color: #cdbf9a; text-align: center; margin-top: 3; }
+  .skip-chip { display: flex; align-items: center; justify-content: center; margin-top: 2.5; padding-top: 1.5; padding-bottom: 1.5; padding-left: 6; padding-right: 6; background-color: #efe6cf; border-radius: 4; cursor: pointer; }
+  .skip-label { font-size: 3.2; font-weight: bold; color: #5b5345; word-break: keep-all; }
+</style>
+
+<div class="host-outer">
+  <div id="host-line-tap" class="host-card">
+    <span class="host-eyebrow">YOUR HOST</span>
+    <span id="host-line-text" class="host-text">...</span>
+    <span id="host-line-hint" class="host-hint">Tap to continue</span>
+  </div>
+  <div id="host-line-skip" class="skip-chip">
+    <span class="skip-label">Skip intro</span>
+  </div>
+</div>

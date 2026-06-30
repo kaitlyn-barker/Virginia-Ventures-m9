@@ -1,0 +1,13 @@
+<!-- Module 9 Product station sign: the small tappable call-to-action that sits on
+     the Product pedestal. Generic ids (station-open-button / station-cta-title) so the
+     shared buildIdeaStation() in index.ts wires + relabels it the same way as Price and
+     Marketing — tapping opens the pick panel, and finishing flips the sign to a green
+     "Done" state. Compiled to public/ui/product-station.json. -->
+<style>
+  .cta { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 80; padding-top: 5; padding-bottom: 5; padding-left: 8; padding-right: 8; background-color: #1F3A5F; border-width: 1.5; border-color: #8a6118; border-radius: 5; cursor: pointer; }
+  .cta-title { font-size: 5.5; font-weight: bold; color: #f3e9d2; text-align: center; }
+</style>
+
+<div id="station-open-button" class="cta">
+  <span id="station-cta-title" class="cta-title">Choose Your Product</span>
+</div>

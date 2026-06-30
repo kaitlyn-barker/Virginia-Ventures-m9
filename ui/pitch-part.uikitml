@@ -1,0 +1,32 @@
+<!-- Module 9 — THE PITCH (Parts 1–3), one generic card layout. The three cards are laid
+     out SIDE BY SIDE (a wide, short strip) so the whole panel sits low in the view and the
+     investors stay visible above it. The question (pitch-question), the three investor TAGS
+     (pitch-tag-a/b/c), the three card SENTENCES (pitch-text-a/b/c) and the confirm line
+     (pitch-confirm) are PLACEHOLDERS — buildPitchPart() in index.ts overwrites them per part.
+     Compiled to public/ui/pitch-part.json. -->
+<style>
+  .panel { display: flex; flex-direction: column; align-items: center; padding: 3.5; width: 172; background-color: #f3e9d2; border-width: 1.5; border-color: #1F3A5F; border-radius: 4; }
+  .question { font-size: 4.4; font-weight: bold; color: #1F3A5F; text-align: center; }
+  .opt-list { display: flex; flex-direction: row; align-items: stretch; justify-content: center; margin-top: 2.5; }
+  .opt { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 52; padding-top: 2.5; padding-bottom: 2.5; padding-left: 3; padding-right: 3; margin-left: 1.5; margin-right: 1.5; background-color: #fbf4e3; border-width: 1.5; border-color: #1F3A5F; border-radius: 3; cursor: pointer; }
+  .opt-tag { font-size: 3; font-weight: bold; color: #8a6118; text-align: center; margin-bottom: 1.5; }
+  .opt-text { font-size: 3.3; color: #1F3A5F; text-align: center; }
+</style>
+
+<div id="pitch-panel" class="panel">
+  <span id="pitch-question" class="question">Your pitch</span>
+  <div class="opt-list">
+    <div id="pitch-card-a" class="opt">
+      <span id="pitch-tag-a" class="opt-tag">Investor</span>
+      <span id="pitch-text-a" class="opt-text">Option A</span>
+    </div>
+    <div id="pitch-card-b" class="opt">
+      <span id="pitch-tag-b" class="opt-tag">Investor</span>
+      <span id="pitch-text-b" class="opt-text">Option B</span>
+    </div>
+    <div id="pitch-card-c" class="opt">
+      <span id="pitch-tag-c" class="opt-tag">Investor</span>
+      <span id="pitch-text-c" class="opt-text">Option C</span>
+    </div>
+  </div>
+</div>

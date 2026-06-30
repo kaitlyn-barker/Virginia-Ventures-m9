@@ -1,0 +1,16 @@
+<!-- Module 9 — an investor's PRIORITY label. One small flat panel that floats above an
+     investor's head showing what that investor cares about (Smart Money / Customers /
+     Low Risk). Built EXACTLY like the other signs: a PanelUI with one text element
+     (id investor-priority), shown in the headset (never DOM). It is GENERIC on purpose —
+     index.ts instantiates it once per investor and sets each one's text with
+     setProperties, the same path the stations and plan board use. Navy fill + gold edge +
+     cream text match the active "Deliver your pitch" button. Compiled to
+     public/ui/investor-label.json. -->
+<style>
+  .inv-label { display: flex; align-items: center; justify-content: center; padding-top: 5; padding-bottom: 5; padding-left: 11; padding-right: 11; background-color: #1F3A5F; border-width: 1.5; border-color: #8a6118; border-radius: 5; }
+  .inv-text { font-size: 7; font-weight: bold; color: #f3e9d2; text-align: center; }
+</style>
+
+<div id="investor-label" class="inv-label">
+  <span id="investor-priority" class="inv-text">Priority</span>
+</div>

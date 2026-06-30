@@ -1,0 +1,43 @@
+<!-- Module 9 opening goal card: the first thing the founder sees, shown before the
+     host tutorial. A headset-visible PanelUI (compiled to public/ui/goal-card.json),
+     built the same way as intro.uikitml. #goal-start begins the host walk-through;
+     #goal-skip jumps straight in with the stations open. Both are wired in index.ts
+     through the same Interactable + onClick path the station cards use. -->
+<style>
+  .panel-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5; width: 100; background-color: #f3e9d2; border-width: 1.5; border-color: #1F3A5F; border-radius: 5; }
+  .eyebrow { font-size: 3; font-weight: bold; color: #8a6118; text-align: center; letter-spacing: 2; }
+  .heading { font-size: 8.5; font-weight: bold; color: #1F3A5F; text-align: center; margin-top: 1.5; }
+  .intro-line { font-size: 4; color: #1F3A5F; text-align: center; margin-top: 2.5; line-height: 1.3; }
+  .todo-title { font-size: 4.2; font-weight: bold; color: #8a5a2b; text-align: center; margin-top: 4; }
+  .points { display: flex; flex-direction: column; align-items: flex-start; width: 88; margin-top: 2; }
+  .point { display: flex; flex-direction: row; align-items: flex-start; width: 88; margin-top: 1.5; }
+  .bullet { width: 2.4; height: 2.4; background-color: #2e7d32; border-radius: 1; margin-top: 1.2; margin-right: 2.5; }
+  .point-text { font-size: 3.6; color: #1F3A5F; text-align: left; line-height: 1.3; width: 82; }
+  .start-button { display: flex; align-items: center; justify-content: center; margin-top: 4.5; padding-top: 3; padding-bottom: 3; padding-left: 12; padding-right: 12; background-color: #c8962a; border-radius: 4; cursor: pointer; }
+  .start-label { font-size: 5.5; font-weight: bold; color: #1F3A5F; word-break: keep-all; }
+  .skip-text { display: flex; align-items: center; justify-content: center; margin-top: 2.5; padding-top: 1.5; padding-bottom: 1.5; padding-left: 5; padding-right: 5; cursor: pointer; }
+  .skip-label { font-size: 3.2; font-weight: bold; color: #6b6256; word-break: keep-all; }
+</style>
+
+<div id="goal-panel" class="panel-container">
+  <span class="eyebrow">VIRGINIA VENTURES</span>
+  <span class="heading">Welcome, Founder!</span>
+  <span class="intro-line">Today you will build and pitch your own Virginia startup.</span>
+  <span class="todo-title">Today you will:</span>
+  <div class="points">
+    <div class="point">
+      <div class="bullet"></div>
+      <span class="point-text">Build a plan: choose your product, your price, and your marketing.</span>
+    </div>
+    <div class="point">
+      <div class="bullet"></div>
+      <span class="point-text">Pitch your plan to three investors and win them over.</span>
+    </div>
+  </div>
+  <div id="goal-start" class="start-button">
+    <span class="start-label">Start</span>
+  </div>
+  <div id="goal-skip" class="skip-text">
+    <span class="skip-label">Skip intro</span>
+  </div>
+</div>

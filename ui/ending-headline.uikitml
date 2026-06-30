@@ -1,0 +1,14 @@
+<!-- Module 9 — the ENDING headline. A celebratory banner shown in front of the investors
+     after Part 3, the same in-headset text method as every other panel (PanelUI, never
+     DOM). Display-only; index.ts sets its text at runtime from the final pip counts
+     ("Your biggest supporter: the ... investor!" or "You won over the whole panel!").
+     Navy / gold / cream to match the active Deliver button. Compiled to
+     public/ui/ending-headline.json. -->
+<style>
+  .headline { display: flex; align-items: center; justify-content: center; padding-top: 12; padding-bottom: 12; padding-left: 22; padding-right: 22; background-color: #1F3A5F; border-width: 2.5; border-color: #8a6118; border-radius: 10; }
+  .headline-text { font-size: 8; font-weight: bold; color: #f3e9d2; text-align: center; }
+</style>
+
+<div id="ending-headline-box" class="headline">
+  <span id="ending-headline" class="headline-text">You won over the whole panel!</span>
+</div>

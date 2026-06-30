@@ -1,0 +1,19 @@
+<!-- Module 9 "Deliver your pitch" button: the tappable call-to-action that stands
+     in front of the investors' desk. Built EXACTLY like the station signs
+     (product-station / price-station / marketing-station): a PanelUI with one
+     clickable element (id pitch-button) plus a title and sub line, wired in
+     index.ts through Interactable + onClick. Its two looks (locked grey vs. ready
+     navy) and its text are swapped at runtime with setProperties — the same path
+     the station cards use to recolor. The defaults below are the LOCKED look, so
+     the very first frame reads as "not ready yet". Compiled to
+     public/ui/pitch-button.json. -->
+<style>
+  .pitch-cta { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 120; padding-top: 7; padding-bottom: 7; padding-left: 12; padding-right: 12; background-color: #8a8a8a; border-width: 2; border-color: #6f6f6f; border-radius: 6; cursor: pointer; }
+  .pitch-title { font-size: 6; font-weight: bold; color: #e9e9e9; text-align: center; }
+  .pitch-sub { font-size: 3.4; color: #e9e9e9; text-align: center; margin-top: 2; }
+</style>
+
+<div id="pitch-button" class="pitch-cta">
+  <span id="pitch-button-label" class="pitch-title">Finish your plan first.</span>
+  <span id="pitch-button-sub" class="pitch-sub">Complete all three stations</span>
+</div>

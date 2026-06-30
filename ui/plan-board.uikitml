@@ -1,0 +1,42 @@
+<!-- Module 9 plan board. A large flat panel mounted high on the far wall above the
+     investors. It now shows the live plan: the title plus three rows that index.ts
+     fills in from the studentPlan data object (setProperties on each row's id — the
+     same PanelUI text method the title uses). The panel look/size/position are
+     unchanged; only the rows it displays are new. Compiled to public/ui/plan-board.json. -->
+<style>
+  .plan-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 16;
+    padding-bottom: 16;
+    padding-left: 10;
+    padding-right: 10;
+    width: 150;
+    background-color: #f3e9d2;
+    border-width: 1.5;
+    border-color: #1F3A5F;
+    border-radius: 4;
+  }
+  .plan-title {
+    font-size: 14;
+    font-weight: bold;
+    color: #1F3A5F;
+    text-align: center;
+  }
+  .plan-row {
+    width: 130;
+    font-size: 8;
+    color: #1F3A5F;
+    text-align: left;
+    margin-top: 4;
+  }
+</style>
+
+<div id="plan-panel" class="plan-panel">
+  <span id="plan-title" class="plan-title">Your Plan</span>
+  <span id="plan-row-product" class="plan-row">Product: not chosen yet</span>
+  <span id="plan-row-price" class="plan-row">Price: not chosen yet</span>
+  <span id="plan-row-marketing" class="plan-row">Marketing: not chosen yet</span>
+</div>
