@@ -1118,6 +1118,10 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   arrivalCard.object3D!.visible = false;
   storyPanels.push(arrivalCard); // kept drawn over the room like every other story panel
 
+  // Every station pick panel, so showing a fresh arrival card can close any that is still open
+  // (P1.4 — two panels never stack). Filled by buildIdeaStation.
+  const stationPickPanels: any[] = [];
+
   // Element handles + the pending "begin the activity" action, set per stop on show.
   let arrivalTitleEl: any = null;
   let arrivalLineEl: any = null;
@@ -1138,6 +1142,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     primaryLabel: string; onPrimary: () => void;
     secondaryLabel: string; onSecondary: () => void;
   }) {
+    // P1.4: close any open station pick panel so a new arrival/review card never stacks on top
+    // of one the student was mid-way through.
+    for (const p of stationPickPanels) { if (p.object3D) p.object3D.visible = false; }
     arrivalPrimaryAction = cfg.onPrimary;
     arrivalSecondaryAction = cfg.onSecondary;
     arrivalTitleEl?.setProperties({ text: cfg.title });
@@ -1287,6 +1294,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       .addComponent(Interactable);
     pickPanel.object3D!.visible = false;
     storyPanels.push(pickPanel);
+    stationPickPanels.push(pickPanel); // P1.4: so a new arrival card can close it
 
     let resetBeats: () => void = function () {};
     let markStationDone: () => void = function () {};
@@ -1306,6 +1314,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     // station can no longer silently wipe the plan + re-lock the pitch.
     function openPanel() {
       if (!stationsUnlocked) return; // gated until the opening finishes or is skipped
+      // P1.4: while an arrival/review card is already up, ignore other sign taps so its content
+      // can't be silently swapped out from under the student.
+      if (arrivalCard.object3D?.visible) return;
       if (thisStationComplete()) {
         const summary = plan[cfg.key + "Short"] + " (" + plan[ideaLabelKey] + ")";
         showActionCard({
@@ -1491,7 +1502,8 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
           conceptNextBtn?.setProperties({ display: "flex" });
         } else {
           paintConceptWrong(i);
-          feedbackEl?.setProperties({ text: card.hint || cfg.feedbackWrong, color: STATION_FEEDBACK_WRONG, display: "flex" });
+          // P1.6: lead with a word, not just the amber color, so the state doesn't rely on color.
+          feedbackEl?.setProperties({ text: "Try again. " + (card.hint || cfg.feedbackWrong), color: STATION_FEEDBACK_WRONG, display: "flex" });
           sfxDown();
         }
       }
@@ -1619,9 +1631,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     checkCards: [
       { name: "Be the best at one thing", desc: "Do what your area does best, better than anyone.", correct: true },
       { name: "Sell a bit of everything", desc: "More products means more chances to win.", correct: false,
-        hint: "Selling everything is how big companies spread thin. A small startup wins by going deep on one strength. That's specialization." },
+        hint: "Big companies sell everything. A small startup wins by being best at one thing. That's specialization." },
       { name: "Copy the big rival", desc: "Just offer whatever they already offer.", correct: false,
-        hint: "Copying a bigger rival means fighting on their turf. Play to what YOUR area does best instead. That's specialization." },
+        hint: "Copying a big rival fights on their turf. Play to what your area does best. That's specialization." },
     ],
     feedbackRight: "Exactly right. Going deep on one strength is specialization!",
     feedbackWrong: "Not quite. A small startup wins by doing one thing best. Give it another try.",
@@ -1662,9 +1674,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     checkCards: [
       { name: "It can go up", desc: "Lots of buyers, only so many to go around.", correct: true },
       { name: "Cut it right away", desc: "A lower price always beats the competition.", correct: false,
-        hint: "When people are already lining up, cutting the price leaves money on the table. Price follows demand. That's supply and demand." },
+        hint: "If buyers are lining up, cutting the price leaves money on the table. Price follows demand." },
       { name: "Keep it fixed", desc: "Your costs didn't change, so the price shouldn't.", correct: false,
-        hint: "Price isn't only about your costs. When demand outruns what you can supply, price can rise. That's supply and demand." },
+        hint: "Price isn't only about costs. When demand beats supply, the price can rise. That's supply and demand." },
     ],
     feedbackRight: "Exactly right. Price rising with demand is supply and demand!",
     feedbackWrong: "Not quite. Think about what more buyers than supply does to price. Try again.",
@@ -1700,9 +1712,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     checkCards: [
       { name: "The people who want it", desc: "Aim at the crowd most likely to buy.", correct: true },
       { name: "As many people as possible", desc: "The bigger the audience, the better.", correct: false,
-        hint: "A huge audience is mostly people who'll never buy. Reach the crowd that already wants this. That's finding your market." },
+        hint: "A huge audience is mostly non-buyers. Reach the crowd that already wants this. That's your market." },
       { name: "Whoever's cheapest to reach", desc: "Just chase the lowest-cost option.", correct: false,
-        hint: "Cheap to reach is worthless if they aren't buyers. Go where your real customers are. That's finding your market." },
+        hint: "Cheap to reach is useless if they don't buy. Go where your real customers are." },
     ],
     feedbackRight: "Exactly right. You found your market!",
     feedbackWrong: "Not quite. Aim where your real buyers are. Give it another go.",
@@ -2438,7 +2450,8 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     } else {
       iqNeededRetry = true;
       paintIqCards(k, correctIdx, false);
-      iqFeedbackEl?.setProperties({ text: a.hint || "Not the strongest answer. Try again.", color: STATION_FEEDBACK_WRONG, display: "flex" });
+      // P1.6: a leading word, not just the amber color, marks this as "not yet".
+      iqFeedbackEl?.setProperties({ text: "Try again. " + (a.hint || "Not the strongest answer."), color: STATION_FEEDBACK_WRONG, display: "flex" });
       sfxDown();
     }
   }
