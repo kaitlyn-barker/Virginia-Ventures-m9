@@ -57,6 +57,12 @@ const studentPlan = {
   // Product: a chosen option (id/label/short) plus its economic idea (id/label).
   price: "", priceLabel: "", priceShort: "", priceIdea: "", priceIdeaLabel: "",
   marketing: "", marketingLabel: "", marketingShort: "", marketingIdea: "", marketingIdeaLabel: "",
+  // P0.2 — the two narrative slots that complete problem -> solution -> customer -> price -> ask.
+  // `problem` is picked at the Product station (per-product options), `customer` at the Marketing
+  // station. Short forms are phrased to slot mid-sentence in the pitch ("solves <problemShort>
+  // for <customerShort>").
+  problem: "", problemLabel: "", problemShort: "",
+  customer: "", customerLabel: "", customerShort: "",
   // The pitch the student delivers to the investors, filled in part by part: the
   // opening (Part 1), the economic case (Part 2), and the ask (Part 3). Each part stores
   // the full line the student tapped AND which investor that card targets (smartMoney |
@@ -1257,6 +1263,15 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     feedbackWrong: string;                             // names the correct concept
     mentorBridge: (opt: StationOption) => string;
     confirmText: (opt: StationOption) => string;
+    // P0.2 (optional): an extra "name the detail" beat shown right after the option is chosen —
+    // the Product station names the PROBLEM it solves, the Marketing station names the CUSTOMER
+    // it is for. `optionsFor(opt)` returns 2..4 plain choices (no wrong answer); the pick is
+    // stored on studentPlan under `field` (problem/customer) as id/Label/Short.
+    detail?: {
+      field: "problem" | "customer";
+      question: string;
+      optionsFor: (opt: StationOption) => { id: string; label: string; short: string }[];
+    };
   }) {
     const plan = studentPlan as any;
     // The studentPlan field names this station writes (Product uses idea/ideaLabel; the
@@ -1331,6 +1346,14 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       const conceptCards = conceptIds.map(function (id) { return doc.getElementById("concept-" + id); });
       conceptCards.forEach(function (c) { c?.setProperties({ width: PRODUCT_IDEA_CARD_WIDTH }); });
 
+      // P0.2 detail beat handles (only present in the Product + Marketing layouts).
+      const beatDetail = doc.getElementById("beat-detail");
+      const detailQuestionEl = doc.getElementById("detail-question");
+      const detailIds = ["a", "b", "c", "d"];
+      const detailCards = detailIds.map(function (id) { return doc.getElementById("detail-" + id); });
+      const detailTextEls = detailIds.map(function (id) { return doc.getElementById("detail-" + id + "-text"); });
+      let currentDetailOptions: { id: string; label: string; short: string }[] = [];
+
       let chosenOption: StationOption | null = null;
       let answered = false;
 
@@ -1378,6 +1401,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       resetBeats = function () {
         plan[cfg.key] = ""; plan[cfg.key + "Label"] = ""; plan[cfg.key + "Short"] = "";
         if (cfg.key === "product") plan.productRegion = "";
+        if (cfg.detail) { plan[cfg.detail.field] = ""; plan[cfg.detail.field + "Label"] = ""; plan[cfg.detail.field + "Short"] = ""; }
         plan[ideaKey] = ""; plan[ideaLabelKey] = "";
         chosenOption = null;
         answered = false;
@@ -1386,6 +1410,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         conceptQuestionEl?.setProperties({ text: cfg.checkQuestion });
         feedbackEl?.setProperties({ display: "none" });
         conceptNextBtn?.setProperties({ display: "none" });
+        beatDetail?.setProperties({ display: "none" });
         beatConcept?.setProperties({ display: "none" });
         beatConfirm?.setProperties({ display: "none" });
         beatOption?.setProperties({ display: "flex" });
@@ -1393,20 +1418,62 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         refreshPlanBoard();
       };
 
-      // Beat 1: record the business choice, then the mentor bridges into the concept.
-      function selectOption(opt: StationOption) {
-        chosenOption = opt;
-        plan[cfg.key] = opt.id; plan[cfg.key + "Label"] = opt.label; plan[cfg.key + "Short"] = opt.short;
-        if (cfg.key === "product" && opt.region) plan.productRegion = opt.region;
-        paintOptions(opt.id);
+      // P0.2 detail beat: highlight the chosen detail card.
+      function paintDetail(chosenIdx: number) {
+        detailCards.forEach(function (c, i) {
+          const isSel = i === chosenIdx;
+          c?.setProperties({
+            borderColor: isSel ? STATION_GOOD_BORDER : PRODUCT_CARD_BORDER,
+            backgroundColor: isSel ? STATION_GOOD_BG : PRODUCT_CARD_BG,
+          });
+        });
+      }
+      // Populate + show the detail beat for the chosen option; any unused cards are hidden.
+      function showDetailBeat(opt: StationOption) {
+        currentDetailOptions = cfg.detail!.optionsFor(opt);
+        detailQuestionEl?.setProperties({ text: cfg.detail!.question });
+        detailCards.forEach(function (c, i) {
+          const d = currentDetailOptions[i];
+          if (d) { detailTextEls[i]?.setProperties({ text: d.label }); c?.setProperties({ display: "flex", width: PRODUCT_IDEA_CARD_WIDTH }); }
+          else { c?.setProperties({ display: "none" }); }
+        });
+        paintDetail(-1);
+        beatOption?.setProperties({ display: "none" });
+        beatDetail?.setProperties({ display: "flex" });
+      }
+      // The detail pick (no wrong answer): store it on the plan, then bridge into the concept.
+      function selectDetail(i: number) {
+        const d = currentDetailOptions[i];
+        if (!d || !chosenOption) return;
+        plan[cfg.detail!.field] = d.id;
+        plan[cfg.detail!.field + "Label"] = d.label;
+        plan[cfg.detail!.field + "Short"] = d.short;
+        paintDetail(i);
+        beatDetail?.setProperties({ display: "none" });
+        bridgeToConcept(chosenOption);
+      }
+
+      // The mentor bridges the chosen option into the economic concept check (shared by the
+      // option -> concept path and the option -> detail -> concept path).
+      function bridgeToConcept(opt: StationOption) {
         mentorBridgeEl?.setProperties({ text: cfg.mentorBridge(opt) });
         fillConceptCards();
         feedbackEl?.setProperties({ display: "none" });
         conceptNextBtn?.setProperties({ display: "none" });
         answered = false;
         sfxNotify(); // the mentor speaks up
-        beatOption?.setProperties({ display: "none" });
         beatConcept?.setProperties({ display: "flex" });
+      }
+
+      // Beat 1: record the business choice. Product/Marketing then name a detail (problem /
+      // customer) before the mentor bridge; Price goes straight to the concept.
+      function selectOption(opt: StationOption) {
+        chosenOption = opt;
+        plan[cfg.key] = opt.id; plan[cfg.key + "Label"] = opt.label; plan[cfg.key + "Short"] = opt.short;
+        if (cfg.key === "product" && opt.region) plan.productRegion = opt.region;
+        paintOptions(opt.id);
+        if (cfg.detail) { showDetailBeat(opt); }
+        else { beatOption?.setProperties({ display: "none" }); bridgeToConcept(opt); }
       }
 
       // Beat 2: a real comprehension check. The right answer affirms + coins + unlocks the
@@ -1453,6 +1520,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       conceptIds.forEach(function (id, i) {
         conceptCards[i]?.setProperties({ onClick: function () { selectConcept(i); } });
       });
+      detailIds.forEach(function (_id, i) {
+        detailCards[i]?.setProperties({ onClick: function () { sfxClick(); selectDetail(i); } });
+      });
       conceptNextBtn?.setProperties({ onClick: function () { sfxClick(); toConfirm(); } });
       doc.getElementById("confirm-continue")?.setProperties({ onClick: function () { sfxClick(); commitAndClose(); } });
 
@@ -1493,6 +1563,40 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     });
   }
 
+  // P0.2 — the PROBLEM each product solves (per-product options). `short` is phrased to slot
+  // after "solves " in the pitch opening ("solves the need for fresh food"). No wrong answer.
+  const PRODUCT_PROBLEMS: Record<string, { id: string; label: string; short: string }[]> = {
+    tech: [
+      { id: "time", label: "People waste time on slow tasks", short: "the problem of wasting time" },
+      { id: "connect", label: "People need better ways to connect", short: "the need to stay connected" },
+      { id: "fun", label: "People want more fun and games", short: "the wish for more fun" },
+    ],
+    delivery: [
+      { id: "far", label: "People need things from far away", short: "the trouble of getting goods from far away" },
+      { id: "busy", label: "Busy people can't get to the store", short: "the problem of no time to shop" },
+      { id: "heavy", label: "Heavy items are hard to carry home", short: "the trouble of carrying heavy things" },
+    ],
+    tour: [
+      { id: "bored", label: "Visitors want fun things to do", short: "the need for fun things to do" },
+      { id: "history", label: "People want to explore history", short: "the wish to learn history" },
+      { id: "memories", label: "Families want special memories", short: "the wish for special memories" },
+    ],
+    farm: [
+      { id: "fresh", label: "People want fresh, healthy food", short: "the need for fresh, healthy food" },
+      { id: "local", label: "People want to support local farms", short: "the wish to buy local" },
+      { id: "far", label: "Store food travels a long way", short: "the problem of food shipped from far away" },
+    ],
+  };
+
+  // P0.2 — the CUSTOMER a startup serves (one shared set; works for any product). `short`
+  // slots after "for " in the pitch opening ("for families nearby").
+  const MARKETING_CUSTOMERS: { id: string; label: string; short: string }[] = [
+    { id: "families", label: "Families in the neighborhood", short: "families nearby" },
+    { id: "visitors", label: "Visitors and tourists", short: "visitors and tourists" },
+    { id: "students", label: "Students and young people", short: "students and young people" },
+    { id: "businesses", label: "Other local businesses", short: "local businesses" },
+  ];
+
   // PRODUCT — teaches Specialization (focus on what your region of Virginia does best).
   buildIdeaStation({
     key: "product",
@@ -1525,8 +1629,14 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       return "A big company could sell a little of everything, cheaper than your " +
         opt.short.toLowerCase() + " in " + (opt.region || "Virginia") + ". You can't outspend them.";
     },
+    detail: {
+      field: "problem",
+      question: "What problem does it solve?",
+      optionsFor: function (opt) { return PRODUCT_PROBLEMS[opt.id] || []; },
+    },
     confirmText: function (opt) {
-      return "Your startup: a " + opt.short.toLowerCase() + " in " + (opt.region || "Virginia") +
+      const solves = studentPlan.problemShort ? (" that solves " + studentPlan.problemShort) : "";
+      return "Your startup: a " + opt.short.toLowerCase() + " in " + (opt.region || "Virginia") + solves +
         ". Choosing it meant not choosing the others. That trade-off is opportunity cost, and every founder makes it.";
     },
   });
@@ -1596,12 +1706,18 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     ],
     feedbackRight: "Exactly right. You found your market!",
     feedbackWrong: "Not quite. Aim where your real buyers are. Give it another go.",
+    detail: {
+      field: "customer",
+      question: "Who is it for?",
+      optionsFor: function () { return MARKETING_CUSTOMERS; },
+    },
     mentorBridge: function (opt) {
-      return "You'll use " + opt.short.toLowerCase() + " for your " + productPhrase() +
+      return "You'll use " + opt.short.toLowerCase() + " to reach " + (studentPlan.customerShort || "your customers") +
         ", but your time and budget are limited. You can't reach everyone.";
     },
     confirmText: function (opt) {
-      return "Your marketing is set: " + opt.short.toLowerCase() +
+      const forWho = studentPlan.customerShort ? (", aimed at " + studentPlan.customerShort) : "";
+      return "Your marketing is set: " + opt.short.toLowerCase() + forWho +
         ". Reaching the right buyers is how you find your market and grow.";
     },
   });
@@ -1673,6 +1789,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   }
   function pitchPrice(): string { return lcFirst(studentPlan.priceShort || "price"); }
   function pitchMarketing(): string { return lcFirst(studentPlan.marketingShort || "marketing"); }
+  // P0.2 — the problem + customer, phrased to slot mid-sentence ("solves <problem> for <customer>").
+  function pitchProblem(): string { return studentPlan.problemShort || "a real need"; }
+  function pitchCustomer(): string { return studentPlan.customerShort || "local customers"; }
 
   // Wipe the running pitch (the chosen lines + their target investors) — used each time
   // the player starts a fresh pitch, so a re-run never mixes old and new answers.
@@ -2015,11 +2134,13 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     hideEnding();
     if (endingRecapDoc) {
       const region = studentPlan.productRegion ? (" in " + studentPlan.productRegion) : "";
-      endingRecapDoc.getElementById("built-product")?.setProperties({ text: (studentPlan.productLabel || "Your product") + region });
+      const solves = studentPlan.problemShort ? (", solving " + studentPlan.problemShort) : "";
+      const forWho = studentPlan.customerShort ? (" for " + studentPlan.customerShort) : "";
+      endingRecapDoc.getElementById("built-product")?.setProperties({ text: (studentPlan.productLabel || "Your product") + region + solves });
       endingRecapDoc.getElementById("built-product-tag")?.setProperties({ text: "Idea: " + (studentPlan.ideaLabel || "Specialization") });
       endingRecapDoc.getElementById("built-price")?.setProperties({ text: studentPlan.priceLabel || "Your price" });
       endingRecapDoc.getElementById("built-price-tag")?.setProperties({ text: "Idea: " + (studentPlan.priceIdeaLabel || "Supply and demand") });
-      endingRecapDoc.getElementById("built-marketing")?.setProperties({ text: studentPlan.marketingLabel || "Your marketing" });
+      endingRecapDoc.getElementById("built-marketing")?.setProperties({ text: (studentPlan.marketingLabel || "Your marketing") + forWho });
       endingRecapDoc.getElementById("built-marketing-tag")?.setProperties({ text: "Idea: " + (studentPlan.marketingIdeaLabel || "Markets") });
 
       // A personalized payoff line naming the investor(s) won over.
@@ -2140,6 +2261,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     // investor each pitch part targeted, each follow-up's outcome, and the final confidence pips.
     console.log("[M9-RESULT] " + JSON.stringify({
       product: studentPlan.product, price: studentPlan.price, marketing: studentPlan.marketing,
+      problem: studentPlan.problem, customer: studentPlan.customer,
       region: pitchRegion(),
       concepts: { product: studentPlan.ideaLabel, price: studentPlan.priceIdeaLabel, marketing: studentPlan.marketingIdeaLabel },
       pitchTargets: { opening: studentPlan.pitch.openingInvestor, case: studentPlan.pitch.caseInvestor, ask: studentPlan.pitch.askInvestor },
@@ -2403,9 +2525,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     question: "Part 1: your opening. How will you introduce your business?",
     confirmMsg: "Great opening! Now your economic case.",
     options: [
-      { investor: "smartMoney", text: () => "I am launching a " + pitchProduct() + " in " + pitchRegion() + ", and it is built to earn strong profits." },
-      { investor: "customers", text: () => "I am launching a " + pitchProduct() + " in " + pitchRegion() + ", where lots of customers already want it." },
-      { investor: "lowRisk", text: () => "I am launching a " + pitchProduct() + " in " + pitchRegion() + ", with a careful plan to start safely." },
+      { investor: "smartMoney", text: () => "My " + pitchProduct() + " in " + pitchRegion() + " solves " + pitchProblem() + " for " + pitchCustomer() + ", and it is built to earn strong profits." },
+      { investor: "customers", text: () => "My " + pitchProduct() + " in " + pitchRegion() + " solves " + pitchProblem() + " for " + pitchCustomer() + ", who already want it." },
+      { investor: "lowRisk", text: () => "My " + pitchProduct() + " in " + pitchRegion() + " solves " + pitchProblem() + " for " + pitchCustomer() + ", with a careful plan to start safely." },
     ],
     onPicked: function () { pitchPart2.open(); },
   });

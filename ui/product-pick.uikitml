@@ -76,6 +76,18 @@
     </div>
   </div>
 
+  <!-- BEAT 1b (P0.2): name the PROBLEM this product solves (per-product options, no wrong answer) -->
+  <div id="beat-detail" class="beat">
+    <span id="detail-question" class="question">What problem does it solve?</span>
+    <span class="hint">Tap the problem your startup solves.</span>
+    <div class="concept-list">
+      <div id="detail-a" class="concept-card"><span id="detail-a-text" class="concept-name">...</span></div>
+      <div id="detail-b" class="concept-card"><span id="detail-b-text" class="concept-name">...</span></div>
+      <div id="detail-c" class="concept-card"><span id="detail-c-text" class="concept-name">...</span></div>
+      <div id="detail-d" class="concept-card"><span id="detail-d-text" class="concept-name">...</span></div>
+    </div>
+  </div>
+
   <!-- BEAT 2: the mentor bridges the choice into the concept, then checks it -->
   <div id="beat-concept" class="beat">
     <div class="mentor-card">
