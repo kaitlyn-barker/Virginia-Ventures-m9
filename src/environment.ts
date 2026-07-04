@@ -1,9 +1,11 @@
 // ============================================================================
-// environment.ts  —  the shop interior for Boss for a Day
+// environment.ts  —  the "Startup Studio" room for Virginia Ventures (Module 9)
 // Built from simple shapes in the Market Harvest style: a few mesh helpers, a
-// gradient sky, soft daylight, and a stage-look retint so the light shifts from
-// morning toward golden as the day advances. The player stands inside a shop:
-// a wood floor, three walls, and a glass storefront looking out onto the street.
+// gradient sky, and soft daylight. The player stands inside a bright modern
+// office: a wood floor, warm-white walls, a city-skyline window, three plan
+// stations, and — at the far end — the investor panel behind a long desk.
+// For "Pitch Day" the room can drop into a STAGE look: setPitchStage() dims the
+// house lights, warms the sky, and lights spotlight beams on the investors.
 // No 3D model files are needed; real models can be swapped in later.
 // ============================================================================
 
@@ -324,7 +326,41 @@ const STAGE_LOOKS = {
   midday: { skyTop: "#2f86d8", skyMid: "#7fbcec", horizon: "#d6ebfb", sun: "#ffefbe", sunI: 2.7, hemiI: 1.2, ground: "#f3ffe4", foliage: "#eaffce" },
   // Afternoon (adult): a warm golden hour.
   afternoon: { skyTop: "#6f7fb8", skyMid: "#d9a878", horizon: "#f6cf9a", sun: "#ffba78", sunI: 2.0, hemiI: 0.98, ground: "#f0e0b8", foliage: "#e8b878" },
+  // Pitch Day (P2): the house lights drop and the sky warms to a focused, theatrical look. The
+  // sun + hemi fall hard so the lit surfaces (walls, floor, desk, the investors) darken and the
+  // warm spotlight beams pop; the unlit ceiling stays as a soft glow overhead.
+  pitch: { skyTop: "#241d31", skyMid: "#46324f", horizon: "#6f4a50", sun: "#ffc98f", sunI: 0.7, hemiI: 0.32, ground: "#9c8863", foliage: "#8f745a" },
 };
+
+// P2 — the "Pitch Day" STAGE. During the pitch the house lights dim, the sky warms (the pitch
+// STAGE_LOOK above), and warm spotlight beams switch on over the three investors. All tunable here.
+const STAGE = {
+  DIM_FACTOR: 0.28,       // indoor ambient + ceiling wash drop to this fraction during a pitch
+  DIM_COLOR: 0.5,         // the big UNLIT surfaces (ceiling, skyline) darken to this fraction too
+  SPOT_COLOR: "#fff1c9",  // warm spotlight glow
+  SPOT_OPACITY: 0.22,     // beam translucency (a soft glow, not a solid cone)
+  SPOT_BASE_RADIUS: 0.95, // beam width low, near the investor
+  SPOT_TOP_Y: 3.95,       // beam tip near the ceiling (the "source")
+  SPOT_BOTTOM_Y: 1.3,     // beam base down around the investor's upper body
+};
+
+// Live handles for the pitch stage (captured as the room is built), toggled by setPitchStage().
+// `dimmables` holds the big UNLIT (MeshBasic) surfaces — the ceiling + the skyline window — whose
+// colors are multiplied down during a pitch (dimming the lights alone can't touch them).
+const pitchStageState = {
+  ambient: null as AmbientLight | null,
+  ceiling: null as HemisphereLight | null,
+  ambientBase: 0,
+  ceilingBase: 0,
+  spots: [] as Mesh[],
+  dimmables: [] as { mat: MeshBasicMaterial; orig: Color }[],
+  on: false,
+};
+
+// Register an unlit surface material so setPitchStage() can darken it during the pitch.
+function registerDimmable(mat: MeshBasicMaterial) {
+  pitchStageState.dimmables.push({ mat, orig: mat.color.clone() });
+}
 
 // Retint the whole street for a stage. Safe to call any number of times; every
 // tint is computed from stored originals, never stacked. "select" maps to morning, "close" to afternoon.
@@ -551,6 +587,13 @@ function buildSkyAndLights(world: any) {
     STUDIO.CEILING_FILL_INTENSITY,
   );
   scene.add(ceilingWash);
+
+  // P2: remember the house lights + their normal intensities so setPitchStage() can dim them for
+  // the pitch and restore them afterward.
+  pitchStageState.ambient = fill;
+  pitchStageState.ambientBase = STUDIO.AMBIENT_INTENSITY;
+  pitchStageState.ceiling = ceilingWash;
+  pitchStageState.ceilingBase = STUDIO.CEILING_FILL_INTENSITY;
 }
 
 // ----------------------------------------------------------------------------
@@ -670,6 +713,7 @@ function buildSkyline(world: any) {
   );
   const skyE = world.createTransformEntity(sky);
   skyE.object3D!.position.set(0, 10, STUDIO.SKYLINE_SKY_Z);
+  registerDimmable(sky.material as MeshBasicMaterial); // P2: the big bright window darkens for the pitch
 
   // The buildings + their lit windows, all in one group.
   const g = new Group();
@@ -681,6 +725,7 @@ function buildSkyline(world: any) {
       new MeshBasicMaterial({ color: new Color(bd.c), fog: false }),
     );
     tower.position.set(bd.x, bd.h / 2, bd.z);
+    registerDimmable(tower.material as MeshBasicMaterial);
     g.add(tower);
 
     // Scatter a few small lit-window squares on the room-facing (+z) face. A
@@ -699,6 +744,7 @@ function buildSkyline(world: any) {
           new MeshBasicMaterial({ color: new Color(STUDIO.SKYLINE_WINDOW_COLOR), fog: false }),
         );
         win.position.set(wx, wy, faceZ);
+        registerDimmable(win.material as MeshBasicMaterial);
         g.add(win);
       }
     }
@@ -728,6 +774,7 @@ function buildCeiling(world: any) {
   ceil.position.set(0, H, 0);
   ceil.castShadow = false;
   ceil.receiveShadow = false;
+  registerDimmable(ceil.material as MeshBasicMaterial); // P2: the ceiling dims for the pitch
   g.add(ceil);
 
   // Recessed light panels: flat emissive rectangles set just under the ceiling.
@@ -740,6 +787,7 @@ function buildCeiling(world: any) {
     panel.position.set(p.x, H - STUDIO.CEILING_PANEL_INSET, p.z);
     panel.castShadow = false;
     panel.receiveShadow = false;
+    registerDimmable(panel.material as MeshBasicMaterial);
     g.add(panel);
   }
 
@@ -2071,6 +2119,49 @@ export function buildInvestors(world: any) {
 // is unchanged (HOST_SPOT). No apron or pen.
 export function buildHost(world: any) {
   placeFigure(world, buildHostFigure(), HOST_SPOT);
+}
+
+// P2 — the "Pitch Day" STAGE. One warm spotlight beam over each investor, built as a translucent
+// open cone (narrow at the ceiling "source", widening down over the investor). Hidden until the
+// pitch begins; setPitchStage() switches them on and dims the house lights so the panel is
+// theatrically lit. Additive to the room — the investors, desk, and board are untouched.
+export function buildStage(world: any) {
+  const h = STAGE.SPOT_TOP_Y - STAGE.SPOT_BOTTOM_Y;
+  const midY = (STAGE.SPOT_TOP_Y + STAGE.SPOT_BOTTOM_Y) / 2;
+  for (const spot of [INVESTOR_1, INVESTOR_2, INVESTOR_3]) {
+    const cone = new Mesh(
+      new ConeGeometry(STAGE.SPOT_BASE_RADIUS, h, 20, 1, true), // open-ended: a beam, not a solid cone
+      new MeshBasicMaterial({
+        color: new Color(STAGE.SPOT_COLOR),
+        transparent: true,
+        opacity: STAGE.SPOT_OPACITY,
+        side: DoubleSide,
+        depthWrite: false,
+        fog: false,
+      }),
+    );
+    cone.position.set(spot.x, midY, spot.z); // tip lands at SPOT_TOP_Y, base at SPOT_BOTTOM_Y
+    cone.renderOrder = 3;
+    cone.visible = false;
+    world.createTransformEntity(cone);
+    pitchStageState.spots.push(cone);
+  }
+}
+
+// Enter (on=true) or leave (on=false) the Pitch Day stage look: dim/restore the house lights,
+// switch the investor spotlights on/off, and warm/cool the sky (the pitch STAGE_LOOK). Safe to
+// call repeatedly.
+export function setPitchStage(world: any, on: boolean) {
+  pitchStageState.on = on;
+  if (pitchStageState.ambient) pitchStageState.ambient.intensity = on ? pitchStageState.ambientBase * STAGE.DIM_FACTOR : pitchStageState.ambientBase;
+  if (pitchStageState.ceiling) pitchStageState.ceiling.intensity = on ? pitchStageState.ceilingBase * STAGE.DIM_FACTOR : pitchStageState.ceilingBase;
+  for (const cone of pitchStageState.spots) cone.visible = on;
+  // Darken the big unlit surfaces (ceiling + skyline) so the house clearly reads "lights down".
+  for (const d of pitchStageState.dimmables) {
+    if (on) d.mat.color.copy(d.orig).multiplyScalar(STAGE.DIM_COLOR);
+    else d.mat.color.copy(d.orig);
+  }
+  setStageLook(world, on ? "pitch" : "select");
 }
 
 // ----------------------------------------------------------------------------

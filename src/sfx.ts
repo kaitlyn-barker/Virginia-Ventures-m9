@@ -75,3 +75,30 @@ export function sfxNotify() {
   note(587, 0.1, "sine", 0.12);
   note(784, 0.14, "sine", 0.12, 0.09);
 }
+// A warm burst of applause — the investor panel claps at the end of the pitch. Built from a
+// short buffer of band-passed noise with a quick-rise, gentle-fall swell (no audio files).
+export function sfxApplause() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  const dur = 1.7;
+  const t0 = ctx.currentTime;
+  const size = Math.floor(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < size; i++) {
+    const t = i / size;
+    const env = Math.min(1, t * 9) * (1 - t) * (1 - t); // fast swell in, soft fade out
+    data[i] = (Math.random() * 2 - 1) * env;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const band = ctx.createBiquadFilter();
+  band.type = "bandpass";
+  band.frequency.value = 1700;
+  band.Q.value = 0.7;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.32;
+  src.connect(band).connect(gain).connect(ctx.destination);
+  src.start(t0);
+  src.stop(t0 + dur + 0.05);
+}

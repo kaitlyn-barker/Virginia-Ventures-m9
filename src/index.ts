@@ -33,8 +33,8 @@ import {
   Color,
 } from "@iwsdk/core";
 
-import { buildBaseWorld, buildStationMarkers, buildInvestors, buildHost, buildJudgesDesk, setStageLook, PLAN_BOARD, PRODUCT_SPOT, PRICE_SPOT, MARKETING_SPOT, INVESTOR_1, INVESTOR_2, INVESTOR_3 } from "./environment";
-import { sfxStage, sfxClick, sfxCoin, sfxFanfare, sfxNotify, sfxDown } from "./sfx";
+import { buildBaseWorld, buildStationMarkers, buildInvestors, buildHost, buildJudgesDesk, buildStage, setPitchStage, setStageLook, PLAN_BOARD, PRODUCT_SPOT, PRICE_SPOT, MARKETING_SPOT, INVESTOR_1, INVESTOR_2, INVESTOR_3 } from "./environment";
+import { sfxStage, sfxClick, sfxCoin, sfxFanfare, sfxNotify, sfxDown, sfxApplause } from "./sfx";
 
 
 // ============================================================================
@@ -402,6 +402,10 @@ const ENDING_POP_MS = 24;
 // ============================================================================
 // The three priorities, in order left -> middle -> right (INVESTOR_1/2/3).
 const INVESTOR_PRIORITIES = ["Smart Money", "Customers", "Low Risk"];
+// P2 — persona names for the panel, same order (matches their looks: auburn woman / man /
+// silver-haired woman). Kids attach to names; shown above each priority on the floating labels
+// and as each investor's reaction header.
+const INVESTOR_NAMES = ["Maya", "Sam", "Grace"];
 
 // The priority label floats above each investor's head. It is centered over the
 // investor's own x/z (read from INVESTOR_1/2/3); only its height is set here.
@@ -788,6 +792,10 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   const investorEntities = buildInvestors(world);
   buildHost(world);
 
+  // Module 9 (P2): the "Pitch Day" stage — a warm spotlight beam over each investor, dark until
+  // the pitch begins (setPitchStage on openPitch/finish). Additive; the panel is untouched.
+  buildStage(world);
+
   // Module 9: the judges' desk — one long, solid wood desk standing just in front
   // of the three investors (DESK_POSITION / WIDTH / HEIGHT / DEPTH in the STUDIO
   // STATION SPOTS block), so they read as a Shark Tank–style panel with their
@@ -888,6 +896,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     label.object3D!.position.set(spot.x, INVESTOR_LABEL_Y, spot.z);
     label.object3D!.visible = true;
     whenPanelReady(label, function (doc) {
+      doc.getElementById("investor-name")?.setProperties({ text: INVESTOR_NAMES[i] });
       doc.getElementById("investor-priority")?.setProperties({ text: INVESTOR_PRIORITIES[i] });
     });
 
@@ -1928,6 +1937,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     hidePitchFeedback();
     resetPitchData();
     resetInvestorConfidence();
+    setPitchStage(world, false); // P2: house lights back up when the pitch is abandoned
     console.log("[PITCH] cancelled by player");
   }
 
@@ -2093,7 +2103,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     whenPanelReady(panel, function (doc) {
       endingReactionEls[i] = doc.getElementById("investor-reaction");
       // The bold header names who is speaking (set once; the body text is set per pitch).
-      doc.getElementById("investor-reaction-name")?.setProperties({ text: INVESTOR_PRIORITIES[i] });
+      doc.getElementById("investor-reaction-name")?.setProperties({ text: INVESTOR_NAMES[i] + " (" + INVESTOR_PRIORITIES[i] + ")" });
     });
   });
 
@@ -2220,10 +2230,10 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       onClick: function () { sfxClick(); hideEndingRecap(); openPitch(); },
     });
     doc.getElementById("recap-new-plan")?.setProperties({
-      onClick: function () { sfxClick(); hideEndingRecap(); hideEnding(); resetWholePlan(); },
+      onClick: function () { sfxClick(); hideEndingRecap(); hideEnding(); resetWholePlan(); setPitchStage(world, false); },
     });
     doc.getElementById("recap-done")?.setProperties({
-      onClick: function () { sfxClick(); hideEndingRecap(); },
+      onClick: function () { sfxClick(); hideEndingRecap(); setPitchStage(world, false); },
     });
   });
 
@@ -2358,7 +2368,8 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         phase += ENDING_CHECK_PULSE_STEP;
         endingCheckGroup.scale.setScalar(1 + ENDING_CHECK_PULSE_AMP * Math.sin(phase));
       }, ENDING_CHECK_PULSE_MS);
-      sfxFanfare(); // the celebration sting lands with the headline
+      sfxFanfare();  // the celebration sting lands with the headline
+      sfxApplause(); // P2: the investor panel claps
       // P1.3: reveal the "See your results" chip. The recap is now gated behind THIS tap, so
       // the student reads the three investor reactions at their own pace before it appears.
       endingSeeResultsEl?.setProperties({ display: "flex" });
@@ -2573,6 +2584,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     hideEnding();              // clear any ending from a previous run
     resetPitchData();
     resetInvestorConfidence(); // every meter back to empty for a fresh pitch
+    setPitchStage(world, true); // P2: dim the house, warm the sky, spotlight the investors
     pitchPart1.open();
   }
 
