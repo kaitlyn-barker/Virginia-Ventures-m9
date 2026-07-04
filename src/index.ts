@@ -145,9 +145,10 @@ const DELIVER_PULSE_SPEED = 0.12;          // radians added per 33 ms tick
 // player moves or backs up. The lines are composed at runtime from the student's real plan.
 // ============================================================================
 const PITCH_PANEL_MAX_WIDTH = 2.8;   // overall panel size in metres (wide: three cards in a row)
-const PITCH_PANEL_MAX_HEIGHT = 0.5;  // short, so the whole strip sits BELOW the desk in the view
+const PITCH_PANEL_MAX_HEIGHT = 0.72; // short strip, with room for the confirm line + Next/Go back row (P1.3)
 const PITCH_CARD_WIDTH = 52;         // each option card's width (UIKit units; three across)
-const PITCH_DONE_CLOSE_MS = 3200;    // how long each pick's investor feedback lingers before advancing
+// (The old PITCH_DONE_CLOSE_MS auto-advance timer was removed in P1.3 — each pitch part now
+// waits for the student to tap "Next" instead of racing their reading.)
 // Where the cue-card strip rides in the view (camera-relative; updated every tick by the
 // follow loop so it tracks the player). Tuned (low + short) so the WHOLE desk + investors read
 // above it on a desktop FOV — see the desk dims (height 1, z -5.9) in environment.ts.
@@ -979,28 +980,55 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // Element handles + the pending "begin the activity" action, set per stop on show.
   let arrivalTitleEl: any = null;
   let arrivalLineEl: any = null;
-  let arrivalStartAction: () => void = function () {};
+  // The two buttons' current actions, swapped per use (a normal arrival vs. a review card).
+  let arrivalPrimaryAction: () => void = function () {};
+  let arrivalSecondaryAction: () => void = function () {};
+  let arrivalPrimaryLabelEl: any = null;
+  let arrivalSecondaryLabelEl: any = null;
 
-  // Show the arrival card at a stop: set its title + line, then pop it directly in front of
-  // the user wherever they are (presentPanel sizes the distance and faces it — identical on
-  // desktop and in a headset), and remember what Start should run.
-  function showArrivalCard(title: string, line: string, onStart: () => void) {
-    arrivalStartAction = onStart;
-    arrivalTitleEl?.setProperties({ text: title });
-    arrivalLineEl?.setProperties({ text: line });
+  // Show the card at a stop with BOTH buttons configured, then pop it directly in front of the
+  // user wherever they are (presentPanel sizes the distance and faces it — identical on desktop
+  // and in a headset). The PRIMARY (gold) button is the safe default; the SECONDARY (outline)
+  // button is the quieter alternative. This one card serves the normal arrival intro
+  // ("Start" / "Go back") AND the review card shown when a finished station is reopened
+  // ("Keep it" / "Change it"), so a curious tap never silently erases work.
+  function showActionCard(cfg: {
+    title: string; line: string;
+    primaryLabel: string; onPrimary: () => void;
+    secondaryLabel: string; onSecondary: () => void;
+  }) {
+    arrivalPrimaryAction = cfg.onPrimary;
+    arrivalSecondaryAction = cfg.onSecondary;
+    arrivalTitleEl?.setProperties({ text: cfg.title });
+    arrivalLineEl?.setProperties({ text: cfg.line });
+    arrivalPrimaryLabelEl?.setProperties({ text: cfg.primaryLabel });
+    arrivalSecondaryLabelEl?.setProperties({ text: cfg.secondaryLabel });
     arrivalCard.object3D!.visible = true;
     presentPanel(arrivalCard); // snap it in front of the player, sized to fit + facing them
+  }
+  // The common case: an intro whose Start begins the activity and whose "Go back" just closes.
+  function showArrivalCard(title: string, line: string, onStart: () => void) {
+    showActionCard({
+      title, line,
+      primaryLabel: "Start", onPrimary: onStart,
+      secondaryLabel: "Go back", onSecondary: function () {},
+    });
   }
   function hideArrivalCard() {
     if (arrivalCard.object3D) arrivalCard.object3D.visible = false;
   }
 
-  // Start runs the remembered activity, then the card hands off to it.
+  // Each button closes the card, then runs its configured action.
   whenPanelReady(arrivalCard, function (doc) {
     arrivalTitleEl = doc.getElementById("arrival-title");
     arrivalLineEl = doc.getElementById("arrival-line");
+    arrivalPrimaryLabelEl = doc.getElementById("arrival-start-label");
+    arrivalSecondaryLabelEl = doc.getElementById("arrival-secondary-label");
     doc.getElementById("arrival-start")?.setProperties({
-      onClick: function () { sfxClick(); hideArrivalCard(); arrivalStartAction(); },
+      onClick: function () { sfxClick(); hideArrivalCard(); arrivalPrimaryAction(); },
+    });
+    doc.getElementById("arrival-secondary")?.setProperties({
+      onClick: function () { sfxClick(); hideArrivalCard(); arrivalSecondaryAction(); },
     });
   });
 
@@ -1116,9 +1144,28 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     // Register this station's reset so the ending can start the whole plan over.
     stationResetFns.push(function () { resetBeats(); });
 
-    // Tapping the sign shows the arrival card first; its Start runs beginActivity.
+    // Is THIS station already finished (both its business choice AND its concept chosen)?
+    function thisStationComplete(): boolean {
+      return plan[cfg.key] !== "" && plan[ideaKey] !== "";
+    }
+
+    // Tapping the sign: if the station is still open, show the normal arrival intro whose
+    // Start begins the activity. If it is already DONE, show a REVIEW card instead — the safe
+    // default (gold "Keep it") just closes, and only "Change it" reopens the activity (which
+    // clears the station to redo it). This is the P1.1 fix: a curious tap on a finished
+    // station can no longer silently wipe the plan + re-lock the pitch.
     function openPanel() {
       if (!stationsUnlocked) return; // gated until the opening finishes or is skipped
+      if (thisStationComplete()) {
+        const summary = plan[cfg.key + "Short"] + " (" + plan[ideaLabelKey] + ")";
+        showActionCard({
+          title: cfg.arrivalTitle,
+          line: "You already chose: " + summary + ". Keep it, or change it?",
+          primaryLabel: "Keep it", onPrimary: function () {},
+          secondaryLabel: "Change it", onSecondary: beginActivity,
+        });
+        return;
+      }
       showArrivalCard(cfg.arrivalTitle, cfg.arrivalLine, beginActivity);
     }
     function beginActivity() {
@@ -1273,6 +1320,14 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       });
       conceptNextBtn?.setProperties({ onClick: function () { sfxClick(); toConfirm(); } });
       doc.getElementById("confirm-continue")?.setProperties({ onClick: function () { sfxClick(); commitAndClose(); } });
+
+      // P1.2 "Go back": leave the station without committing. resetBeats already cleared any
+      // in-progress data on open, so simply hiding the panel is safe — an unfinished station
+      // stays unfinished (its sign stays open), and a finished one is only ever reached here
+      // via the review card's explicit "Change it".
+      doc.getElementById("station-back")?.setProperties({
+        onClick: function () { sfxClick(); if (pickPanel.object3D) pickPanel.object3D.visible = false; },
+      });
 
       resetBeats(); // start on beat 1, nothing chosen
     });
@@ -1568,9 +1623,29 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     applyPanelOnTop(panel);
   }
 
+  // Every pitch part panel, so "Go back" (and a fresh start) can hide whichever is showing.
+  const pitchPartPanels: any[] = [];
+
+  // Hide all per-answer feedback bubbles (the investor-reaction panels reused during the pitch).
+  function hidePitchFeedback() {
+    for (const p of endingReactionPanels) { if (p && p.object3D) p.object3D.visible = false; }
+  }
+
+  // P1.2 cancel: leave the pitch cleanly from any part. Hide the parts + feedback bubbles, stop
+  // the follow loop from tracking a panel, and reset the run so a later re-pitch starts fresh.
+  // (The pitch button relocks itself only if the plan is incomplete; the plan itself is kept.)
+  function cancelPitch() {
+    activePitchPanel = null;
+    for (const p of pitchPartPanels) { if (p && p.object3D) p.object3D.visible = false; }
+    hidePitchFeedback();
+    resetPitchData();
+    resetInvestorConfidence();
+    console.log("[PITCH] cancelled by player");
+  }
+
   // Build one pitch part: a cards panel exactly like a plan station's, driven by cfg.
-  // saveKey is the studentPlan.pitch field prefix (opening | case | ask). onPicked
-  // runs after the encouraging line lingers — it opens the next part, or finishes.
+  // saveKey is the studentPlan.pitch field prefix (opening | case | ask). onPicked runs when
+  // the student taps Next (no auto-advance) — it opens the next part, or finishes after Part 3.
   function buildPitchPart(cfg: {
     question: string;
     confirmMsg: string;
@@ -1590,14 +1665,13 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     storyPanels.push(panel); // kept drawn over the desk/figures by the on-top loop
 
     let reset: () => void = function () {};
-    let closeTimer: ReturnType<typeof setTimeout> | null = null;
+    pitchPartPanels.push(panel); // so "Go back" / a fresh start can hide whichever part shows
 
     // Refresh from the live plan, then pop the cards LOW in front of the user (a podium of
     // cue cards) so the investors stay visible above them — see presentPitchPanel.
     function open() {
       const o3d = panel.object3D;
       if (!o3d) return;
-      if (closeTimer !== null) { clearTimeout(closeTimer); closeTimer = null; }
       reset();
       o3d.visible = true;
       presentPitchPanel(panel); // sit it below the investors, facing the player
@@ -1616,6 +1690,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         cards[id]?.setProperties({ width: PITCH_CARD_WIDTH });
       });
       const confirm = doc.getElementById("pitch-confirm");
+      const nextBtn = doc.getElementById("pitch-next");
 
       // One pick per part. Set true on the first accepted tap so extra taps (a second
       // card, or the same one again) before the part auto-advances are ignored — otherwise
@@ -1645,10 +1720,11 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         plan.pitch[cfg.saveKey + "Investor"] = "";
         highlight(-1);
         confirm?.setProperties({ display: "none" });
+        nextBtn?.setProperties({ display: "none" }); // P1.3: Next appears only after a pick
       };
 
       // Any pick is accepted (no wrong answers): remember the line and which investor the
-      // card targets, confirm, then advance.
+      // card targets, confirm, and reveal Next (the student advances when ready).
       function pick(i: number) {
         if (picked) return; // already chose this part — ignore extra taps so meters don't over-fill
         picked = true;
@@ -1661,18 +1737,24 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         if (ti >= 0) showPitchFeedback(ti); // pop their spoken reaction above their head
         highlight(i);
         confirm?.setProperties({ display: "flex" });
+        nextBtn?.setProperties({ display: "flex" }); // P1.3: reveal Next, no auto-advance
         console.log("[PITCH] " + cfg.saveKey + " -> " + (PITCH_INVESTOR_LABEL[o.investor] || o.investor) + " : \"" + line + "\"");
-        if (closeTimer !== null) clearTimeout(closeTimer);
-        closeTimer = setTimeout(function () {
-          closeTimer = null;
-          if (panel.object3D) panel.object3D.visible = false;
-          cfg.onPicked(); // open the next part, or finish after Part 3
-        }, PITCH_DONE_CLOSE_MS);
+      }
+
+      // P1.3: advance only when the student taps Next, so no timer races their reading of the
+      // investor's reaction. Hide this part + its feedback bubble, then open the next (or finish).
+      function advance() {
+        if (!picked) return; // Next is hidden until a card is chosen, but guard anyway
+        hidePitchFeedback();
+        if (panel.object3D) panel.object3D.visible = false;
+        cfg.onPicked();
       }
 
       ids.forEach(function (id, i) {
         cards[id]?.setProperties({ onClick: function () { sfxClick(); pick(i); } });
       });
+      nextBtn?.setProperties({ onClick: function () { sfxClick(); advance(); } });
+      doc.getElementById("pitch-back")?.setProperties({ onClick: function () { sfxClick(); cancelPitch(); } });
 
       reset(); // compose the lines on first load
     });
@@ -1683,18 +1765,29 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // ----- THE ENDING ------------------------------------------------------
   // After Part 3, a friendly closing in front of the investors: a HEADLINE panel, a
   // one-line REACTION near each investor (matching their final pip count), and a gold
-  // CHECK badge. Built the headset-visible way (PanelUI text + real 3D shapes). All are
-  // display-only (no Interactable, like the plan board), drawn on-top by the story loop,
-  // and hidden until showEnding() reveals them. The investors + reactions ARE the report.
+  // CHECK badge. Built the headset-visible way (PanelUI text + real 3D shapes). The reactions
+  // + check are display-only, but the headline is Interactable so its "See your results" chip
+  // can gate the recap behind a TAP (P1.3) instead of a timer that covers the desk mid-read.
+  // All are drawn on-top by the story loop and hidden until showEnding() reveals them.
 
-  // The headline panel — one generic text element, centered in front of the investors.
+  // The headline panel — the celebratory line plus a "See your results" chip (hidden until the
+  // headline lands). Interactable so the chip is tappable.
   const endingHeadlinePanel = world
     .createTransformEntity()
-    .addComponent(PanelUI, { config: "./ui/ending-headline.json", maxWidth: ENDING_HEADLINE_MAX_WIDTH, maxHeight: ENDING_HEADLINE_MAX_HEIGHT });
+    .addComponent(PanelUI, { config: "./ui/ending-headline.json", maxWidth: ENDING_HEADLINE_MAX_WIDTH, maxHeight: ENDING_HEADLINE_MAX_HEIGHT })
+    .addComponent(Interactable);
   endingHeadlinePanel.object3D!.visible = false;
   storyPanels.push(endingHeadlinePanel);
   let endingHeadlineEl: any = null;
-  whenPanelReady(endingHeadlinePanel, function (doc) { endingHeadlineEl = doc.getElementById("ending-headline"); });
+  let endingSeeResultsEl: any = null;
+  whenPanelReady(endingHeadlinePanel, function (doc) {
+    endingHeadlineEl = doc.getElementById("ending-headline");
+    endingSeeResultsEl = doc.getElementById("ending-see-results");
+    endingSeeResultsEl?.setProperties({ display: "none" }); // shown only once the headline lands
+    doc.getElementById("ending-see-results")?.setProperties({
+      onClick: function () { sfxClick(); presentEndingRecap(); },
+    });
+  });
 
   // One reaction panel per investor, floating just in front of each above the desk. One
   // generic layout; the text is set per investor in showEnding from their pip count.
@@ -1761,12 +1854,9 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   storyPanels.push(endingRecapPanel);
   let endingRecapDoc: any = null;
 
-  // How long after the celebration pops near the investors before the recap slides in front of
-  // the founder (so the headline reads first).
-  // The investors speak (staggered) for ~2.1s, then the headline + check land; this delay
-  // (measured from the headline) lets the player read the three reactions before the recap
-  // slides in front of them and covers the desk.
-  const ENDING_RECAP_DELAY_MS = 2600;
+  // P1.3: the recap no longer slides in on a timer (which raced the reader and covered the
+  // desk mid-read). Instead the headline's "See your results" chip gates it behind a tap — the
+  // student reads the three investor reactions at their own pace, then taps to bring up the recap.
 
   function hideEndingRecap() {
     if (endingRecapPanel.object3D) endingRecapPanel.object3D.visible = false;
@@ -1941,16 +2031,19 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
         endingCheckGroup.scale.setScalar(1 + ENDING_CHECK_PULSE_AMP * Math.sin(phase));
       }, ENDING_CHECK_PULSE_MS);
       sfxFanfare(); // the celebration sting lands with the headline
+      // P1.3: reveal the "See your results" chip. The recap is now gated behind THIS tap, so
+      // the student reads the three investor reactions at their own pace before it appears.
+      endingSeeResultsEl?.setProperties({ display: "flex" });
     };
 
-    // Schedule: investor 0 now, 1 and 2 staggered, then the headline + check, then the recap.
+    // Schedule: investor 0 now, 1 and 2 staggered, then the headline + check + the results chip.
+    // The recap itself waits for the student to tap that chip (no auto-advance timer).
     revealReaction(0);
     for (let i = 1; i < endingReactionPanels.length; i++) {
       endingSeqTimers.push(setTimeout(function () { revealReaction(i); }, i * ENDING_REACTION_STAGGER_MS));
     }
     const afterAll = endingReactionPanels.length * ENDING_REACTION_STAGGER_MS;
     endingSeqTimers.push(setTimeout(revealFinish, afterAll));
-    endingSeqTimers.push(setTimeout(presentEndingRecap, afterAll + ENDING_RECAP_DELAY_MS));
   }
 
   // Hide the ending (headline + reactions + check) and stop its timers — used on a fresh
@@ -1958,6 +2051,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   function hideEnding() {
     clearEndingTimers();
     endingCheckGroup.scale.setScalar(1);
+    endingSeeResultsEl?.setProperties({ display: "none" }); // re-arm the gate for next time
     if (endingHeadlinePanel.object3D) endingHeadlinePanel.object3D.visible = false;
     for (const p of endingReactionPanels) { if (p.object3D) p.object3D.visible = false; }
     if (endingCheck.object3D) endingCheck.object3D.visible = false;

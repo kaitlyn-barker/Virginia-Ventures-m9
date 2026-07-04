@@ -3,7 +3,9 @@
      investors stay visible above it. The question (pitch-question), the three investor TAGS
      (pitch-tag-a/b/c), the three card SENTENCES (pitch-text-a/b/c) and the confirm line
      (pitch-confirm) are PLACEHOLDERS — buildPitchPart() in index.ts overwrites them per part.
-     Compiled to public/ui/pitch-part.json. -->
+     After a pick, the confirm line + a "Next" button appear (no auto-advance): the student
+     reads the investor's reaction above the desk, then taps Next to move on at their own pace.
+     A quiet "Go back" chip cancels the whole pitch. Compiled to public/ui/pitch-part.json. -->
 <style>
   .panel { display: flex; flex-direction: column; align-items: center; padding: 3.5; width: 172; background-color: #f3e9d2; border-width: 1.5; border-color: #1F3A5F; border-radius: 4; }
   .question { font-size: 4.4; font-weight: bold; color: #1F3A5F; text-align: center; }
@@ -11,6 +13,12 @@
   .opt { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 52; padding-top: 2.5; padding-bottom: 2.5; padding-left: 3; padding-right: 3; margin-left: 1.5; margin-right: 1.5; background-color: #fbf4e3; border-width: 1.5; border-color: #1F3A5F; border-radius: 3; cursor: pointer; }
   .opt-tag { font-size: 3; font-weight: bold; color: #8a6118; text-align: center; margin-bottom: 1.5; }
   .opt-text { font-size: 3.3; color: #1F3A5F; text-align: center; }
+  .confirm { font-size: 3.6; font-weight: bold; color: #2e7d32; text-align: center; margin-top: 2.5; line-height: 1.25; }
+  .footer { display: flex; flex-direction: row; align-items: center; justify-content: center; margin-top: 2.5; }
+  .next-button { display: flex; align-items: center; justify-content: center; padding-top: 1.8; padding-bottom: 1.8; padding-left: 9; padding-right: 9; margin-left: 2; margin-right: 2; background-color: #c8962a; border-radius: 3; cursor: pointer; }
+  .next-label { font-size: 4; font-weight: bold; color: #1F3A5F; word-break: keep-all; }
+  .back-chip { display: flex; align-items: center; justify-content: center; padding-top: 1.5; padding-bottom: 1.5; padding-left: 5; padding-right: 5; margin-left: 2; margin-right: 2; background-color: #efe4c8; border-width: 1; border-color: #c7b58a; border-radius: 3; cursor: pointer; }
+  .back-chip-label { font-size: 3.2; font-weight: bold; color: #5b5345; word-break: keep-all; }
 </style>
 
 <div id="pitch-panel" class="panel">
@@ -27,6 +35,15 @@
     <div id="pitch-card-c" class="opt">
       <span id="pitch-tag-c" class="opt-tag">Investor</span>
       <span id="pitch-text-c" class="opt-text">Option C</span>
+    </div>
+  </div>
+  <span id="pitch-confirm" class="confirm">Nice choice!</span>
+  <div class="footer">
+    <div id="pitch-back" class="back-chip">
+      <span class="back-chip-label">Go back</span>
+    </div>
+    <div id="pitch-next" class="next-button">
+      <span id="pitch-next-label" class="next-label">Next</span>
     </div>
   </div>
 </div>

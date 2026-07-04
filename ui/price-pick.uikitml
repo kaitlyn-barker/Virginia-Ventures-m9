@@ -29,6 +29,10 @@
 
   .confirm-title { font-size: 5.2; font-weight: bold; color: #2e7d32; text-align: center; }
   .confirm-text { font-size: 3.8; color: #1F3A5F; text-align: center; margin-top: 2.5; line-height: 1.35; width: 122; }
+
+  /* a small, quiet "leave without choosing" chip, present across all beats */
+  .back-chip { display: flex; align-items: center; justify-content: center; margin-top: 4.5; padding-top: 1.5; padding-bottom: 1.5; padding-left: 6; padding-right: 6; background-color: #efe4c8; border-width: 1; border-color: #c7b58a; border-radius: 3; cursor: pointer; }
+  .back-chip-label { font-size: 3.4; font-weight: bold; color: #5b5345; word-break: keep-all; }
 </style>
 
 <div id="station-panel" class="panel">
@@ -86,5 +90,10 @@
     <div id="confirm-continue" class="next-button">
       <span id="confirm-continue-label" class="next-label">Continue</span>
     </div>
+  </div>
+
+  <!-- quiet "leave without choosing" chip, shown across all beats -->
+  <div id="station-back" class="back-chip">
+    <span class="back-chip-label">Go back</span>
   </div>
 </div>
