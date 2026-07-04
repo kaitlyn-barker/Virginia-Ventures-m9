@@ -104,7 +104,7 @@ const PRODUCT_TRIGGER_MAX_HEIGHT = 0.5;
 // Plan board (the live "Your Plan" readout on the back wall): the row text size and
 // the vertical gap above each row, in UIKit units. Bump the size up to read it from
 // farther away; the board's frame, color, and position are not changed by these.
-const PLAN_ROW_FONT_SIZE = 8;
+const PLAN_ROW_FONT_SIZE = 9; // P1.5: a touch larger so the wall board reads from across the room
 const PLAN_ROW_SPACING = 4;
 
 // ============================================================================
@@ -651,6 +651,28 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   const PRESENT_MIN_DIST = 2.4; // never closer than this, however small the panel
   const PRESENT_MAX_DIST = 6.0; // never farther than this, however large the panel
 
+  // P1.5: a gentle scale-in so a panel settles into view instead of hard-popping at full size
+  // (kinder on younger eyes in a headset). Subtle on purpose — a soft settle, not a big zoom.
+  // Self-clearing; one timer per object3D so a re-present never stacks pops.
+  const PANEL_POP_START = 0.86;
+  const PANEL_POP_STEPS = 6;
+  const PANEL_POP_MS = 18;
+  const panelPopTimers = new WeakMap<any, ReturnType<typeof setInterval>>();
+  function popInPanel(o3d: any) {
+    if (!o3d) return;
+    const prev = panelPopTimers.get(o3d);
+    if (prev) clearInterval(prev);
+    o3d.scale.setScalar(PANEL_POP_START);
+    let tick = 0;
+    const timer = setInterval(function () {
+      tick++;
+      const t = Math.min(1, tick / PANEL_POP_STEPS);
+      o3d.scale.setScalar(PANEL_POP_START + (1 - PANEL_POP_START) * t);
+      if (t >= 1) { clearInterval(timer); panelPopTimers.delete(o3d); }
+    }, PANEL_POP_MS);
+    panelPopTimers.set(o3d, timer);
+  }
+
   function presentPanel(entity: any) {
     const cam: any = world.camera;
     const o3d = entity.object3D;
@@ -688,6 +710,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     // Turn to face the player (a panel's front is its +Z side).
     o3d.rotation.set(0, Math.atan2(_presEye.x - px, _presEye.z - pz), 0, "YXZ");
     applyPanelOnTop(entity);
+    popInPanel(o3d); // P1.5: soft scale-in
   }
 
   // Draw a panel OVER the 3D world so Gus, his cart, or a building can never sit
@@ -2615,5 +2638,30 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       o3d.scale.setScalar(1); // rest at normal size while locked
     }
   }, 33);
+
+  // ==========================================================================
+  // MODULE 9 — IDLE NUDGE (P1.7)
+  // If the founder wanders ~45s without interacting and the plan is still unfinished, gently
+  // glow the station rings to point them back to the next step. Any tap (or a completed plan, or
+  // an open panel) clears it. Reuses the onboarding highlight rings + the same setInterval house
+  // style. Only runs once the opening is over (stationsUnlocked).
+  // ==========================================================================
+  const IDLE_NUDGE_MS = 45000;
+  let idleLast = performance.now();
+  let idleNudging = false;
+  window.addEventListener("pointerdown", function () { idleLast = performance.now(); });
+  setInterval(function () {
+    if (!stationsUnlocked) return;
+    const busy = !!(arrivalCard.object3D && arrivalCard.object3D.visible)
+      || stationPickPanels.some(function (p) { return !!(p.object3D && p.object3D.visible); })
+      || !!(activePitchPanel && activePitchPanel.object3D && activePitchPanel.object3D.visible)
+      || !!(endingRecapPanel.object3D && endingRecapPanel.object3D.visible);
+    // Keep the timer fresh while they're engaged or already done, so the nudge only fires on a
+    // genuine idle stretch with an unfinished plan and nothing on screen.
+    if (busy || isPlanComplete()) idleLast = performance.now();
+    const shouldNudge = !isPlanComplete() && !busy && (performance.now() - idleLast > IDLE_NUDGE_MS);
+    if (shouldNudge && !idleNudging) { idleNudging = true; showHighlight("stations"); console.log("[NUDGE] idle — glowing the stations"); }
+    else if (!shouldNudge && idleNudging) { idleNudging = false; showHighlight("none"); }
+  }, 3000);
 
 });
