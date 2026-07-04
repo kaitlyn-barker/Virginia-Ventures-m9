@@ -2033,9 +2033,30 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
           ? "You built a real Virginia startup and won over the " + INVESTOR_PRIORITIES[leaders[0]] + " investor!"
           : "You built a real Virginia startup and won over the whole panel!";
       endingRecapDoc.getElementById("recap-subtitle")?.setProperties({ text: sub });
+
+      // P0.5: reflection prompts to carry into the classroom debrief — the hardest question (the
+      // one they needed a retry on) and the concepts they used.
+      endingRecapDoc.getElementById("reflect-hardest")?.setProperties({ text: hardestQuestionText() });
+      endingRecapDoc.getElementById("reflect-concept")?.setProperties({
+        text: "You used four big ideas: specialization, supply and demand, markets, and opportunity cost. Which one helped your startup the most?",
+      });
     }
     endingRecapPanel.object3D!.visible = true;
     presentPanel(endingRecapPanel);
+  }
+
+  // P0.5: the reflection prompt about the trickiest investor question — the first one the student
+  // answered weakly (needed the hint + a retry). If they answered every one strongly, ask which
+  // made them think the most, so there is always something to reflect on.
+  function hardestQuestionText(): string {
+    const topics = ["your price and profit", "reaching your customers", "keeping your risk low"];
+    for (let i = 0; i < INVESTOR_IDS.length; i++) {
+      if (studentPlan.questions[INVESTOR_IDS[i]] === "weak") {
+        return "Your trickiest question came from the " + INVESTOR_PRIORITIES[i] +
+          " investor, about " + topics[i] + ". How did you work it out?";
+      }
+    }
+    return "You answered every investor's question strongly. Which one made you think the most?";
   }
 
   whenPanelReady(endingRecapPanel, function (doc) {
@@ -2113,6 +2134,18 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   function showEnding() {
     clearEndingTimers(); // cancel anything still in flight from a prior reveal
     const pips = investorConfidence; // 0..3 per investor (left Smart Money, mid Customers, right Low Risk)
+
+    // P0.5: one-line structured completion summary a teacher dashboard / LMS could later consume.
+    // Prefixed [M9-RESULT] and emitted once per finished run, with the plan, the concepts, which
+    // investor each pitch part targeted, each follow-up's outcome, and the final confidence pips.
+    console.log("[M9-RESULT] " + JSON.stringify({
+      product: studentPlan.product, price: studentPlan.price, marketing: studentPlan.marketing,
+      region: pitchRegion(),
+      concepts: { product: studentPlan.ideaLabel, price: studentPlan.priceIdeaLabel, marketing: studentPlan.marketingIdeaLabel },
+      pitchTargets: { opening: studentPlan.pitch.openingInvestor, case: studentPlan.pitch.caseInvestor, ask: studentPlan.pitch.askInvestor },
+      questions: { smartMoney: studentPlan.questions.smartMoney, customers: studentPlan.questions.customers, lowRisk: studentPlan.questions.lowRisk },
+      pips: { smartMoney: pips[0], customers: pips[1], lowRisk: pips[2] },
+    }));
 
     // Headline text (a lone leader is named; a tie celebrates the whole panel) — computed now,
     // revealed after the investors have spoken.

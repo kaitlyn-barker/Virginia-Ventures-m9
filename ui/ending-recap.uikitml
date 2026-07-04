@@ -22,6 +22,12 @@
   .chip { display: flex; align-items: center; justify-content: center; padding-top: 1.5; padding-bottom: 1.5; padding-left: 4; padding-right: 4; margin-left: 1; margin-right: 1; margin-top: 1.5; background-color: #1F3A5F; border-radius: 3; }
   .chip-text { font-size: 3.2; font-weight: bold; color: #f3e9d2; text-align: center; word-break: keep-all; }
 
+  /* "Remember for your reflection" — carry-into-the-classroom prompts */
+  .reflect-list { display: flex; flex-direction: column; align-items: stretch; width: 136; margin-top: 2; }
+  .reflect-row { display: flex; flex-direction: row; align-items: flex-start; width: 136; padding: 3; margin-top: 1.5; background-color: #eef4ea; border-width: 1; border-color: #cfe0c6; border-radius: 3; }
+  .reflect-bullet { font-size: 3.6; font-weight: bold; color: #2e7d32; margin-right: 2; }
+  .reflect-text { font-size: 3.5; color: #1F3A5F; text-align: left; line-height: 1.25; width: 128; }
+
   .buttons { display: flex; flex-direction: row; justify-content: center; margin-top: 5; }
   .btn { display: flex; align-items: center; justify-content: center; padding-top: 2.5; padding-bottom: 2.5; padding-left: 6; padding-right: 6; margin-left: 1.5; margin-right: 1.5; border-radius: 4; cursor: pointer; }
   .btn-primary { background-color: #c8962a; }
@@ -57,6 +63,18 @@
     <div class="chip"><span class="chip-text">Supply and demand</span></div>
     <div class="chip"><span class="chip-text">Markets</span></div>
     <div class="chip"><span class="chip-text">Opportunity cost</span></div>
+  </div>
+
+  <span class="section-label">Remember for your reflection</span>
+  <div class="reflect-list">
+    <div class="reflect-row">
+      <span class="reflect-bullet">?</span>
+      <span id="reflect-hardest" class="reflect-text">...</span>
+    </div>
+    <div class="reflect-row">
+      <span class="reflect-bullet">*</span>
+      <span id="reflect-concept" class="reflect-text">...</span>
+    </div>
   </div>
 
   <div class="buttons">
