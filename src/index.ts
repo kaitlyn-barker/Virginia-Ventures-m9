@@ -67,6 +67,11 @@ const studentPlan = {
     ask: "", askInvestor: "",         // Part 3 — the ask
     complete: false,
   },
+  // The investor Q&A after the pitch (P0.1). Per investor id, the outcome of their one
+  // plan-specific follow-up: "strong" (nailed it first try — earns a confidence pip), "weak"
+  // (needed the hint + a retry — leaves a concern), or "" (not asked). The ending reads this to
+  // name each investor's concern honestly.
+  questions: { smartMoney: "", customers: "", lowRisk: "" } as Record<string, string>,
 };
 void studentPlan; // read by later stations / the plan board
 
@@ -208,6 +213,136 @@ const INVESTOR_FEEDBACK_LINES: string[][] = [
     "Low risk and a solid plan. I'm in!",      // 3 pips
   ],
 ];
+
+// ============================================================================
+// MODULE 9 — INVESTOR QUESTIONS  (P0.1: the follow-up Q&A after the pitch)
+// After Part 3, each investor asks ONE follow-up question chosen from the student's REAL plan.
+// Each investor probes the plan field they care about (Smart Money -> price / profit, Customers
+// -> marketing / reach, Low Risk -> product / risk). Every question has three answers with
+// exactly ONE clearly stronger answer; a first-try strong answer earns a confidence pip, a
+// weaker pick shows a short amber hint and lets the student try again (the plan stations' gentle
+// redirect). This restores real stakes to the pip meters. The bank is a plain data table keyed
+// on the plan choice, so it stays easy to author: add a choice key to extend it.
+// A short CONCERN line per investor is shown at the ending when they answered weakly.
+// ============================================================================
+const INVESTOR_QUESTION_PANEL_MAX_WIDTH = 2.4;   // the question panel size in metres
+const INVESTOR_QUESTION_PANEL_MAX_HEIGHT = 2.2;
+// A pip count at/above this reads as "this investor is in" (drives the escalating verdict line).
+const INVESTOR_INVEST_THRESHOLD = 2;
+// One short worry per investor, appended to their ending reaction only when their follow-up was
+// answered weakly (needed the hint). ASCII only (the panel font has no em dash).
+const INVESTOR_CONCERN_LINES = [
+  "Still, keep a close eye on your profits.",       // Smart Money
+  "Still, keep working to reach more customers.",   // Customers
+  "Still, keep a backup plan ready.",               // Low Risk
+];
+
+// Which plan field each investor's question probes, in the SAME order as INVESTOR_IDS.
+const INVESTOR_QUESTION_FIELD = ["price", "marketing", "product"];
+
+type IQAnswer = { text: string; strong: boolean; hint?: string };
+type InvestorQuestion = { question: string; answers: IQAnswer[] };
+// INVESTOR_QUESTIONS[investorId][planChoiceId] -> the question asked when the student made that
+// choice. Exactly one answer per question has strong=true; the others carry a one-line hint.
+const INVESTOR_QUESTIONS: Record<string, Record<string, InvestorQuestion>> = {
+  // SMART MONEY probes PRICE — the profit angle.
+  smartMoney: {
+    low: {
+      question: "A low price earns less on each sale. How will you still make a profit?",
+      answers: [
+        { text: "Sell to lots of people, so small profits add up.", strong: true },
+        { text: "Charge everyone more once I'm famous.", strong: false, hint: "Maybe someday, but a low price makes money NOW by selling to MANY customers." },
+        { text: "Just hope it works out.", strong: false, hint: "Hope isn't a plan. A low price earns by selling to LOTS of buyers." },
+      ],
+    },
+    medium: {
+      question: "A medium price sits in the middle. How does that help your profit?",
+      answers: [
+        { text: "It earns a fair amount per sale and still keeps plenty of buyers.", strong: true },
+        { text: "The middle is just the easy choice.", strong: false, hint: "The middle is smart for a reason: fair earnings AND lots of buyers." },
+        { text: "Customers won't notice the price.", strong: false, hint: "Buyers always notice price. A medium price balances earnings and buyers." },
+      ],
+    },
+    high: {
+      question: "A high price scares off some buyers. How is that still good money?",
+      answers: [
+        { text: "Each sale earns a lot, so I don't need as many buyers.", strong: true },
+        { text: "A high price proves I'm the best.", strong: false, hint: "Price alone doesn't prove quality. A high price works because each sale earns MORE." },
+        { text: "I'll drop it if no one buys.", strong: false, hint: "That's a backup, not the plan. A high price earns more on EACH sale." },
+      ],
+    },
+  },
+  // CUSTOMERS probes MARKETING — the reach angle.
+  customers: {
+    social: {
+      question: "Social media reaches huge crowds. How do you reach the RIGHT people?",
+      answers: [
+        { text: "Aim my videos at the customers who want my product.", strong: true },
+        { text: "Post to as many people as I can.", strong: false, hint: "A giant crowd is mostly non-buyers. Aim at the people who actually want it." },
+        { text: "Copy whatever is trending.", strong: false, hint: "Trends fade. Reaching YOUR customers matters more than chasing trends." },
+      ],
+    },
+    flyers: {
+      question: "Flyers reach your town. What about a customer outside town who wants it?",
+      answers: [
+        { text: "Add online posts so people farther away can find me too.", strong: true },
+        { text: "Print even more flyers.", strong: false, hint: "More flyers still reach only the same town. A new channel like online reaches farther." },
+        { text: "Tell them to drive into town.", strong: false, hint: "Many won't make the drive. Meet them where they are, online." },
+      ],
+    },
+    fair: {
+      question: "A fair booth reaches people there that day. How do you reach more?",
+      answers: [
+        { text: "Collect fans at the booth and post online so they hear from me again.", strong: true },
+        { text: "Just wait for the next fair.", strong: false, hint: "That's a long wait. Stay in touch online between fairs." },
+        { text: "Hand out more free samples.", strong: false, hint: "Samples are nice, but they still only reach today's crowd." },
+      ],
+    },
+    word: {
+      question: "Word of mouth is slow to start. How do you get it going?",
+      answers: [
+        { text: "Wow my first customers so they tell their friends.", strong: true },
+        { text: "Ask strangers to spread the word.", strong: false, hint: "People share what they love. Wow your real customers first." },
+        { text: "Wait and see if it spreads.", strong: false, hint: "Waiting is slow. Delight your first customers so they can't help but talk." },
+      ],
+    },
+  },
+  // LOW RISK probes PRODUCT — the risk / backup-plan angle (explicit risk vocabulary).
+  lowRisk: {
+    tech: {
+      question: "Apps are risky, and most fail. What makes yours a safe bet?",
+      answers: [
+        { text: "Start small, test it with real users, and improve before growing.", strong: true },
+        { text: "Spend big to launch as fast as possible.", strong: false, hint: "Spending big early is risky. Starting small and testing lowers the risk." },
+        { text: "Tech always makes money.", strong: false, hint: "Big claims are risky. A safe plan tests first, then grows." },
+      ],
+    },
+    delivery: {
+      question: "Norfolk's port brings in goods from all over the world. What if a route gets blocked?",
+      answers: [
+        { text: "Keep a backup route so orders still arrive on time.", strong: true },
+        { text: "Just wait for it to clear up.", strong: false, hint: "Waiting means late orders. A backup route keeps you running. That lowers your risk." },
+        { text: "Cancel those orders.", strong: false, hint: "Canceling loses customers. A backup route is the safer plan." },
+      ],
+    },
+    tour: {
+      question: "Tourism rises and falls with the seasons. How do you stay safe in slow months?",
+      answers: [
+        { text: "Save money in busy months to cover the slow ones.", strong: true },
+        { text: "Spend it all during the busy season.", strong: false, hint: "Then slow months hurt. Saving in busy months is your backup plan." },
+        { text: "Hope every month stays busy.", strong: false, hint: "Seasons always change. Saving ahead keeps the risk low." },
+      ],
+    },
+    farm: {
+      question: "Crops can fail. What's your backup if one has a bad year?",
+      answers: [
+        { text: "Grow a few different foods, so one bad crop won't sink me.", strong: true },
+        { text: "Plant only my best-selling crop.", strong: false, hint: "One crop is risky. A few different crops is a safer backup." },
+        { text: "Hope the weather is always perfect.", strong: false, hint: "Weather is out of your control. Variety lowers the risk." },
+      ],
+    },
+  },
+};
 
 // Each reaction line floats just in front of its investor, above the desk, centered on
 // the investor's x. Only the height + depth (toward the player) are set here.
@@ -1959,13 +2094,17 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     if (i === 1) return "And you reach the crowd with " + lcFirst(studentPlan.marketingLabel || "smart marketing") + ".";
     return "Focusing on " + lcFirst(studentPlan.productLabel || "one clear idea") + " in " + pitchRegion() + " keeps the risk low.";
   }
-  // The full ending line per investor: their verdict (escalates with how well the pitch
-  // served them, 0..3 pips) followed by the plan-specific note above.
+  // The full ending line per investor (P0.3): their verdict (escalates with how well the pitch
+  // AND their follow-up served them, 0..3 pips — the verdict already carries the invest / not-yet
+  // sentiment), the plan-specific thing they liked, and — only when they answered their follow-up
+  // weakly — one short honest concern. So each investor's feedback is: liked + verdict + concern.
   function investorEndingFeedback(i: number): string {
     const n = Math.max(0, Math.min(3, investorConfidence[i] || 0));
     const verdict = (INVESTOR_FEEDBACK_LINES[i] || [])[n] || "";
     const note = investorPlanNote(i);
-    return note ? (verdict + " " + note) : verdict;
+    const answeredWeak = studentPlan.questions[INVESTOR_IDS[i]] === "weak";
+    const concern = answeredWeak ? (" " + (INVESTOR_CONCERN_LINES[i] || "")) : "";
+    return (note ? (verdict + " " + note) : verdict) + concern;
   }
 
   // Reveal the ending as a paced beat: each investor speaks in turn (their specific feedback
@@ -2057,16 +2196,145 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     if (endingCheck.object3D) endingCheck.object3D.visible = false;
   }
 
-  // After Part 3: the pitch is done. Mark it complete, log which investor each part targeted
-  // (a dev check), then run the ending — showEnding() walks the investors' specific reactions
-  // one by one, then the headline + check + fanfare, then the founder's recap.
+  // ----- INVESTOR QUESTIONS (P0.1) ---------------------------------------
+  // One reusable panel drives all three investors' follow-ups in turn. It reuses the plan
+  // stations' gentle mechanic: the asking investor, their plan-specific question, three answers
+  // (one clearly stronger), an amber redirect + retry on a weak pick, and a Next button (paced,
+  // no auto-advance). A first-try strong answer earns a confidence pip on that investor (so the
+  // meters mean something); a weak-then-corrected answer earns none and is remembered as a
+  // "concern" for the ending. Built + shown the headset-visible way, like every other panel.
+  const iqPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, { config: "./ui/investor-question.json", maxWidth: INVESTOR_QUESTION_PANEL_MAX_WIDTH, maxHeight: INVESTOR_QUESTION_PANEL_MAX_HEIGHT })
+    .addComponent(Interactable);
+  iqPanel.object3D!.visible = false;
+  storyPanels.push(iqPanel);
+
+  // Element handles (set once the document loads) + the live per-question state.
+  let iqAskerEl: any = null;
+  let iqQuestionEl: any = null;
+  let iqFeedbackEl: any = null;
+  let iqNextBtn: any = null;
+  const iqCards: any[] = [];
+  const iqCardTexts: any[] = [];
+  let iqCurrentQ: InvestorQuestion | null = null;
+  let iqInvestorIndex = -1;
+  let iqAnswered = false;      // the strong answer has been chosen (Next is available)
+  let iqNeededRetry = false;   // a weak answer was tried first (no pip; leaves a concern)
+  let iqOnDone: () => void = function () {};
+
+  function paintIqCards(chosenIdx: number, correctIdx: number, revealCorrect: boolean) {
+    iqCurrentQ?.answers.forEach(function (_a, i) {
+      let border = PRODUCT_CARD_BORDER, bg = PRODUCT_CARD_BG;
+      if (revealCorrect && i === correctIdx) { border = STATION_GOOD_BORDER; bg = STATION_GOOD_BG; }
+      else if (!revealCorrect && i === chosenIdx) { border = STATION_WRONG_BORDER; bg = STATION_WRONG_BG; }
+      iqCards[i]?.setProperties({ borderColor: border, backgroundColor: bg });
+    });
+  }
+
+  // Ask investor `i` their one plan-specific question; call `done` once it is answered strongly
+  // and the student taps Next. If the plan somehow has no matching question, skip straight to done.
+  function askInvestorQuestion(i: number, done: () => void) {
+    const id = INVESTOR_IDS[i];
+    const field = INVESTOR_QUESTION_FIELD[i];
+    const choice = (studentPlan as any)[field] as string;
+    const q = INVESTOR_QUESTIONS[id]?.[choice];
+    if (!q) { done(); return; } // no question for this choice — skip this investor
+
+    iqCurrentQ = q;
+    iqInvestorIndex = i;
+    iqAnswered = false;
+    iqNeededRetry = false;
+    iqOnDone = done;
+
+    iqAskerEl?.setProperties({ text: INVESTOR_PRIORITIES[i] });
+    iqQuestionEl?.setProperties({ text: q.question });
+    q.answers.forEach(function (a, k) { iqCardTexts[k]?.setProperties({ text: a.text }); });
+    paintIqCards(-1, -1, false);
+    iqFeedbackEl?.setProperties({ display: "none" });
+    iqNextBtn?.setProperties({ display: "none" });
+
+    iqPanel.object3D!.visible = true;
+    presentPanel(iqPanel);   // pop it comfortably in front of the player
+    reactInvestor(i);        // the asking investor leans in
+    sfxNotify();
+    console.log("[PITCH] question — " + INVESTOR_PRIORITIES[i] + " asks about " + field + "=" + choice);
+  }
+
+  function iqPick(k: number) {
+    if (iqAnswered || !iqCurrentQ) return; // already solved this one
+    const correctIdx = iqCurrentQ.answers.findIndex(function (a) { return a.strong; });
+    const a = iqCurrentQ.answers[k];
+    if (a.strong) {
+      iqAnswered = true;
+      paintIqCards(k, correctIdx, true);
+      const id = INVESTOR_IDS[iqInvestorIndex];
+      if (iqNeededRetry) {
+        studentPlan.questions[id] = "weak"; // corrected, but needed the hint — no pip, a concern
+        iqFeedbackEl?.setProperties({ text: "Yes, that's the strong answer.", color: STATION_FEEDBACK_RIGHT, display: "flex" });
+        sfxClick();
+      } else {
+        studentPlan.questions[id] = "strong"; // nailed it first try — earn a confidence pip
+        awardInvestor(id);
+        iqFeedbackEl?.setProperties({ text: "Exactly right. Strong answer!", color: STATION_FEEDBACK_RIGHT, display: "flex" });
+        sfxCoin();
+      }
+      iqNextBtn?.setProperties({ display: "flex" });
+    } else {
+      iqNeededRetry = true;
+      paintIqCards(k, correctIdx, false);
+      iqFeedbackEl?.setProperties({ text: a.hint || "Not the strongest answer. Try again.", color: STATION_FEEDBACK_WRONG, display: "flex" });
+      sfxDown();
+    }
+  }
+
+  function iqAdvance() {
+    if (!iqAnswered) return;
+    iqPanel.object3D!.visible = false;
+    iqOnDone();
+  }
+
+  whenPanelReady(iqPanel, function (doc) {
+    iqAskerEl = doc.getElementById("iq-asker");
+    iqQuestionEl = doc.getElementById("iq-question");
+    iqFeedbackEl = doc.getElementById("iq-feedback");
+    iqNextBtn = doc.getElementById("iq-next");
+    ["a", "b", "c"].forEach(function (id) {
+      iqCards.push(doc.getElementById("iq-" + id));
+      iqCardTexts.push(doc.getElementById("iq-" + id + "-text"));
+    });
+    iqCards.forEach(function (card, k) {
+      card?.setProperties({ onClick: function () { sfxClick(); iqPick(k); } });
+    });
+    iqNextBtn?.setProperties({ onClick: function () { sfxClick(); iqAdvance(); } });
+    doc.getElementById("iq-back")?.setProperties({
+      onClick: function () { sfxClick(); iqPanel.object3D!.visible = false; cancelPitch(); },
+    });
+  });
+
+  // Ask all three investors in turn (skipping any without a matching question), then run onAllDone.
+  function runInvestorQuestions(onAllDone: () => void) {
+    studentPlan.questions.smartMoney = "";
+    studentPlan.questions.customers = "";
+    studentPlan.questions.lowRisk = "";
+    const askNext = function (i: number) {
+      if (i >= INVESTOR_IDS.length) { onAllDone(); return; }
+      askInvestorQuestion(i, function () { askNext(i + 1); });
+    };
+    askNext(0);
+  }
+
+  // After Part 3: the pitch is done. Mark it complete, log which investor each part targeted (a
+  // dev check), then run the investor Q&A (P0.1). Once every investor has been answered, the
+  // ending runs — showEnding() walks the investors' specific reactions one by one, then the
+  // headline + check + fanfare, then the founder's recap.
   function finishPitch() {
     const p = studentPlan.pitch;
     p.complete = true;
     const name = function (key: string): string { return PITCH_INVESTOR_LABEL[key] || key || "(none)"; };
     console.log("[PITCH] complete — opening -> " + name(p.openingInvestor) +
       ", case -> " + name(p.caseInvestor) + ", ask -> " + name(p.askInvestor));
-    showEnding();
+    runInvestorQuestions(showEnding);
   }
 
   // The three parts' CONTENT. Each part has three cards; card a targets Smart Money, b

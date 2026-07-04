@@ -1,0 +1,47 @@
+<!-- Module 9 — INVESTOR QUESTIONS. After the pitch, each investor asks ONE follow-up question
+     conditioned on the student's real plan. One generic layout, reused for all three: index.ts
+     (buildInvestorQuestion) sets the asking investor's name (#iq-asker), the question (#iq-question),
+     the three answer cards (#iq-a/b/c with name+desc), the feedback (#iq-feedback), and toggles
+     the Next button (#iq-next). One answer is clearly stronger: a first-try strong answer fills a
+     confidence pip and reveals Next; a weaker pick shows an amber hint and lets the student try
+     again (the same gentle redirect the plan stations use). A quiet "Go back" chip (#iq-back)
+     cancels the pitch. Compiled to public/ui/investor-question.json. -->
+<style>
+  .panel { display: flex; flex-direction: column; align-items: center; padding: 5; width: 138; background-color: #f3e9d2; border-width: 1.5; border-color: #1F3A5F; border-radius: 5; }
+
+  .asker-card { display: flex; flex-direction: column; align-items: center; width: 126; padding: 4; margin-bottom: 3; background-color: #1F3A5F; border-width: 1.5; border-color: #8a6118; border-radius: 4; }
+  .asker-eyebrow { font-size: 2.8; font-weight: bold; color: #d8c27a; text-align: center; letter-spacing: 2; }
+  .asker-name { font-size: 4.4; font-weight: bold; color: #f3e9d2; text-align: center; margin-top: 1; }
+  .question { font-size: 4.6; font-weight: bold; color: #1F3A5F; text-align: center; margin-top: 1; line-height: 1.25; width: 128; }
+
+  .answer-list { display: flex; flex-direction: column; align-items: center; margin-top: 2; }
+  .answer-card { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 120; padding-top: 2.5; padding-bottom: 2.5; padding-left: 4; padding-right: 4; margin-top: 1.5; background-color: #fbf4e3; border-width: 1.5; border-color: #1F3A5F; border-radius: 3; cursor: pointer; }
+  .answer-text { font-size: 3.6; font-weight: bold; color: #1F3A5F; text-align: center; line-height: 1.15; }
+  .feedback { font-size: 3.7; font-weight: bold; color: #2e7d32; text-align: center; margin-top: 3; line-height: 1.3; width: 128; }
+
+  .next-button { display: flex; align-items: center; justify-content: center; margin-top: 4; padding-top: 2.5; padding-bottom: 2.5; padding-left: 10; padding-right: 10; background-color: #c8962a; border-radius: 4; cursor: pointer; }
+  .next-label { font-size: 4.6; font-weight: bold; color: #1F3A5F; word-break: keep-all; }
+
+  .back-chip { display: flex; align-items: center; justify-content: center; margin-top: 4.5; padding-top: 1.5; padding-bottom: 1.5; padding-left: 6; padding-right: 6; background-color: #efe4c8; border-width: 1; border-color: #c7b58a; border-radius: 3; cursor: pointer; }
+  .back-chip-label { font-size: 3.4; font-weight: bold; color: #5b5345; word-break: keep-all; }
+</style>
+
+<div id="iq-panel" class="panel">
+  <div class="asker-card">
+    <span class="asker-eyebrow">INVESTOR QUESTION</span>
+    <span id="iq-asker" class="asker-name">Smart Money</span>
+  </div>
+  <span id="iq-question" class="question">...</span>
+  <div class="answer-list">
+    <div id="iq-a" class="answer-card"><span id="iq-a-text" class="answer-text">...</span></div>
+    <div id="iq-b" class="answer-card"><span id="iq-b-text" class="answer-text">...</span></div>
+    <div id="iq-c" class="answer-card"><span id="iq-c-text" class="answer-text">...</span></div>
+  </div>
+  <span id="iq-feedback" class="feedback">...</span>
+  <div id="iq-next" class="next-button">
+    <span class="next-label">Next</span>
+  </div>
+  <div id="iq-back" class="back-chip">
+    <span class="back-chip-label">Go back</span>
+  </div>
+</div>
