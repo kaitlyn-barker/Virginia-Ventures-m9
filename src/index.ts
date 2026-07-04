@@ -79,7 +79,6 @@ const studentPlan = {
   // name each investor's concern honestly.
   questions: { smartMoney: "", customers: "", lowRisk: "" } as Record<string, string>,
 };
-void studentPlan; // read by later stations / the plan board
 
 // The choices panel is popped directly in front of the user wherever they stand/look
 // (see presentPanel) — same on desktop and in a headset — so no station-relative anchor
