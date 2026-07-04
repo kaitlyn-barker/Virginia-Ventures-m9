@@ -602,6 +602,27 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   browserLookLoop();
 
   // --------------------------------------------------------------------------
+  // ONE MASTER TICKER (P3)
+  // Every perpetual per-frame loop registers here (onTick) instead of spinning up its own
+  // setInterval, so the whole app runs on a SINGLE 33 ms timer — kinder on a Quest's battery and
+  // thermals over a long session. A callback that wants a slower cadence checks the tick count it
+  // is handed (e.g. `if (n % 90) return;` for ~3 s). A throwing callback is isolated so it can't
+  // stop the others. Transient, self-clearing animations (pops, leans, the check pulse) keep their
+  // own short-lived timers — only the FOREVER loops are consolidated here.
+  // setInterval (not requestAnimationFrame) because rAF pauses in a headset.
+  // --------------------------------------------------------------------------
+  const TICK_MS = 33;
+  const tickCallbacks: Array<(count: number) => void> = [];
+  function onTick(fn: (count: number) => void) { tickCallbacks.push(fn); }
+  let tickCount = 0;
+  setInterval(function () {
+    tickCount++;
+    for (const fn of tickCallbacks) {
+      try { fn(tickCount); } catch (e) { console.warn("[TICK] callback error", e); }
+    }
+  }, TICK_MS);
+
+  // --------------------------------------------------------------------------
   // HIDDEN-PANEL CLICK GUARD
   // IWSDK keeps every panel alive and just toggles visibility. Pointer ray tests
   // do NOT skip invisible meshes, so a hidden button can sit in front of a real
@@ -632,7 +653,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       }
     }
   }
-  setInterval(hitTestVisibilityLoop, 33);
+  onTick(hitTestVisibilityLoop);
 
   // --------------------------------------------------------------------------
   // PANEL PRESENTATION
@@ -756,11 +777,11 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
   // behind Gus or a building would then show its boxes but hide its words. This
   // keeps the WHOLE visible panel on top, frame after frame.
   const storyPanels: any[] = [];
-  setInterval(function () {
+  onTick(function () {
     for (const p of storyPanels) {
       if (p.object3D && p.object3D.visible) applyPanelOnTop(p);
     }
-  }, 33);
+  });
 
   // --------------------------------------------------------------------------
   // The walkable world (sky, light, ground). See src/environment.ts.
@@ -1037,16 +1058,16 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     boardHighlightEntity.object3D!.visible = which === "board";
   }
 
-  // The gentle pulse: breathe the opacity of whichever rings are visible (setInterval, not rAF).
+  // The gentle pulse: breathe the opacity of whichever rings are visible (on the master ticker).
   let highlightPulse = 0;
-  setInterval(function () {
+  onTick(function () {
     highlightPulse += HIGHLIGHT_PULSE_STEP;
     const op = HIGHLIGHT_OPACITY + HIGHLIGHT_PULSE_AMP * Math.sin(highlightPulse);
     const clamped = Math.max(0, Math.min(1, op));
     for (const m of highlightMeshes) {
       if (m.visible) (m.material as MeshBasicMaterial).opacity = clamped;
     }
-  }, HIGHLIGHT_PULSE_MS);
+  });
 
   // The goal card — the first thing the founder sees, straight ahead of the spawn. Built and
   // shown the same way as the other modules' opening cards; kept on top like every story panel.
@@ -1889,13 +1910,13 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     placePitchPanel(entity, true);
   }
 
-  // ONE follow loop keeps whichever pitch part is showing parked low + in front (setInterval,
-  // never rAF). It eases rather than snaps, so small head motion stays smooth; when no part is
+  // ONE follow loop keeps whichever pitch part is showing parked low + in front (on the master
+  // ticker). It eases rather than snaps, so small head motion stays smooth; when no part is
   // visible it does nothing, so a hidden/advancing panel is left alone.
-  setInterval(function () {
+  onTick(function () {
     const p = activePitchPanel;
     if (p && p.object3D && p.object3D.visible) placePitchPanel(p, false);
-  }, 33);
+  });
 
   // Pop the per-answer feedback bubble for investor `index`: an escalating reaction line
   // (matching their new pip count) above their head, faced at the player. Reuses the
@@ -2628,11 +2649,11 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
 
   // ONE loop flips the button the moment the plan becomes complete and gives the
   // READY button a gentle pulse so it draws the eye. State is only re-applied when
-  // it actually changes, so this is cheap. setInterval (not rAF) per house style.
+  // it actually changes, so this is cheap. On the master ticker per house style.
   let pitchReadyShown = false;
   let pitchInited = false;
   let pitchPulse = 0;
-  setInterval(function () {
+  onTick(function () {
     if (!pitchBoxEl) return; // wait for the document to load
     const ready = isPlanComplete();
     if (ready !== pitchReadyShown || !pitchInited) {
@@ -2648,20 +2669,22 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     } else if (o3d.scale.x !== 1) {
       o3d.scale.setScalar(1); // rest at normal size while locked
     }
-  }, 33);
+  });
 
   // ==========================================================================
   // MODULE 9 — IDLE NUDGE (P1.7)
   // If the founder wanders ~45s without interacting and the plan is still unfinished, gently
   // glow the station rings to point them back to the next step. Any tap (or a completed plan, or
-  // an open panel) clears it. Reuses the onboarding highlight rings + the same setInterval house
-  // style. Only runs once the opening is over (stationsUnlocked).
+  // an open panel) clears it. Reuses the onboarding highlight rings, and rides the master ticker
+  // at a slow ~3 s cadence. Only runs once the opening is over (stationsUnlocked).
   // ==========================================================================
   const IDLE_NUDGE_MS = 45000;
+  const IDLE_CHECK_TICKS = 90; // ~3 s at TICK_MS
   let idleLast = performance.now();
   let idleNudging = false;
   window.addEventListener("pointerdown", function () { idleLast = performance.now(); });
-  setInterval(function () {
+  onTick(function (n) {
+    if (n % IDLE_CHECK_TICKS !== 0) return; // only check every ~3 s
     if (!stationsUnlocked) return;
     const busy = !!(arrivalCard.object3D && arrivalCard.object3D.visible)
       || stationPickPanels.some(function (p) { return !!(p.object3D && p.object3D.visible); })
@@ -2673,6 +2696,6 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     const shouldNudge = !isPlanComplete() && !busy && (performance.now() - idleLast > IDLE_NUDGE_MS);
     if (shouldNudge && !idleNudging) { idleNudging = true; showHighlight("stations"); console.log("[NUDGE] idle — glowing the stations"); }
     else if (!shouldNudge && idleNudging) { idleNudging = false; showHighlight("none"); }
-  }, 3000);
+  });
 
 });
