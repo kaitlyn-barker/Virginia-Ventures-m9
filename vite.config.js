@@ -35,5 +35,5 @@ export default defineConfig({
   publicDir: 'public',
   // Local dev/build serve from root; the GitHub Pages production build serves
   // from the project subpath so assets resolve at /<repo>/.
-  base: process.env.NODE_ENV === 'production' ? '/Virginia-Ventures-m9/' : '/'
+  base: './'
 });
